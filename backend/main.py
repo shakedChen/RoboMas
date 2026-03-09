@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from flask import (
     Flask, render_template, request, session,
-    redirect, url_for, send_file
+    redirect, url_for, send_file, jsonify, g
 )
 from asgiref.wsgi import WsgiToAsgi
 import io
@@ -10,9 +10,23 @@ import os
 import zipfile
 import uuid
 import shutil
+import hashlib
+import secrets
+from datetime import datetime, timedelta
 from pathlib import Path
+from functools import wraps
 from werkzeug.utils import secure_filename
 from fpdf import FPDF
+from supabase import create_client, Client
+
+# Initialize Supabase client
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+
+supabase: Client | None = None
+if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # Create Flask app
 flask_app = Flask(__name__)
@@ -28,6 +42,119 @@ BASE_DIR = Path(__file__).parent
 # Use /tmp for uploads in serverless environment
 UPLOAD_FOLDER = Path("/tmp") / "robomas_uploads" if os.environ.get("VERCEL") else BASE_DIR / "uploads"
 UPLOAD_FOLDER.mkdir(exist_ok=True)
+
+# ── Admin credentials (hashed for security) ──────────────────────────────────
+# Admin: shutzibutzi / gsdgsdg#@$@#23dfs!
+ADMIN_USERNAME = "shutzibutzi"
+ADMIN_PASSWORD_HASH = hashlib.sha256("gsdgsdg#@$@#23dfs!".encode()).hexdigest()
+
+# ── Authentication helpers ───────────────────────────────────────────────────
+def hash_password(password: str) -> str:
+    """Hash password using SHA256 with salt."""
+    salt = secrets.token_hex(16)
+    hashed = hashlib.sha256((password + salt).encode()).hexdigest()
+    return f"{salt}:{hashed}"
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Verify password against stored hash."""
+    if ":" not in stored_hash:
+        # Simple hash comparison for admin
+        return hashlib.sha256(password.encode()).hexdigest() == stored_hash
+    salt, hashed = stored_hash.split(":", 1)
+    return hashlib.sha256((password + salt).encode()).hexdigest() == hashed
+
+def get_current_user():
+    """Get the current logged-in user from session."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    if user_id == "admin":
+        return {"id": "admin", "username": ADMIN_USERNAME, "is_admin": True, "email": "admin@robomas.co.il"}
+    if not supabase:
+        return None
+    try:
+        result = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+        if result.data:
+            return {**result.data, "is_admin": False}
+    except Exception:
+        pass
+    return None
+
+def login_required(f):
+    """Decorator to require login for a route."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get("user_id"):
+            return redirect(url_for("auth_login", next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    """Decorator to require admin access for a route."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = get_current_user()
+        if not user or not user.get("is_admin"):
+            return redirect(url_for("auth_login", next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# ── Visitor tracking ─────────────────────────────────────────────────────────
+def track_visitor():
+    """Track visitor for statistics."""
+    if not supabase:
+        return
+    try:
+        visitor_id = session.get("visitor_id")
+        if not visitor_id:
+            visitor_id = str(uuid.uuid4())
+            session["visitor_id"] = visitor_id
+        
+        ip_address = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if ip_address:
+            ip_address = ip_address.split(",")[0].strip()
+        
+        user_agent = request.headers.get("User-Agent", "")[:500]  # Limit length
+        page_path = request.path
+        
+        # Insert visitor record (without storing sensitive data)
+        supabase.table("visitors").insert({
+            "visitor_id": visitor_id,
+            "page_path": page_path,
+            "user_agent": user_agent,
+            # IP is hashed for privacy
+            "ip_hash": hashlib.sha256(ip_address.encode()).hexdigest()[:16] if ip_address else None
+        }).execute()
+        
+        # Update daily stats
+        today = datetime.now().strftime("%Y-%m-%d")
+        existing = supabase.table("visitor_stats").select("*").eq("date", today).execute()
+        
+        if existing.data:
+            supabase.table("visitor_stats").update({
+                "page_views": existing.data[0]["page_views"] + 1,
+                "unique_visitors": existing.data[0]["unique_visitors"] + (1 if not session.get("counted_today") else 0)
+            }).eq("date", today).execute()
+        else:
+            supabase.table("visitor_stats").insert({
+                "date": today,
+                "page_views": 1,
+                "unique_visitors": 1
+            }).execute()
+        
+        session["counted_today"] = True
+    except Exception as e:
+        # Silently fail - don't break the app for analytics
+        print(f"Visitor tracking error: {e}")
+
+@flask_app.before_request
+def before_request():
+    """Track visitors before each request."""
+    # Skip tracking for static files and API endpoints
+    if request.path.startswith("/static") or request.path.startswith("/api/"):
+        return
+    track_visitor()
+    g.current_user = get_current_user()
 
 # ── Document type registry ────────────────────────────────────────────────────
 DOC_TYPES = {

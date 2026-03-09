@@ -1,16 +1,16 @@
-# 🤖 רובומס — RoboMas Tax Refunds
+# 🤖 RoboMas Tax Refunds
 
-RoboMas is a Hebrew-language Flask web application that walks Israeli taxpayers through the annual tax report (דוח שנתי) and refund process, step by step.
+RoboMas is a Hebrew-language Flask web application that walks Israeli taxpayers through the annual tax report and refund process, step by step.
 
 > ⚠️ **Disclaimer**: RoboMas does **not** replace professional tax advice. Always verify the final forms with a qualified professional or the Israel Tax Authority.
 
 ## Features
 
-- **Simple step-by-step wizard**: answer a short series of clear questions (יעד, שנה, פרטים אישיים, משפחה, קובץ ניכויים, הכנסות, זכאויות, מסמכים) instead of filling long forms by yourself.
+- **Simple step-by-step wizard**: answer a short series of clear questions (goal, year, personal details, family, tax file, income, credits, documents) instead of filling long forms by yourself.
 - **Helps you find refunds**: based on your answers, RoboMas highlights relevant credits, deductions, and situations where you might be entitled to a tax refund.
 - **Explains what and why in Hebrew**: each step includes short explanations in Hebrew so you understand what information is needed and how it affects your refund.
 - **Easy document upload**: upload all required documents with drag & drop, organized by type, with a clear list of what you already added and what is missing.
-- **Ready-for-upload ZIP file**: at the end you get a single ZIP file that is already named and formatted the way the Israel Tax Authority expects, including a summary file (קובץ סיכום).
+- **Ready-for-upload ZIP file**: at the end you get a single ZIP file that is already named and formatted the way the Israel Tax Authority expects, including a human-readable summary PDF.
 - **Designed for Israelis**: right-to-left interface, Hebrew labels, and a visual style that feels familiar.
 - **No registration**: use RoboMas immediately without creating an account or remembering a password.
 
@@ -74,7 +74,7 @@ For example: `AK005000_01_001_03190572532024.pdf` (Form 106).
 In addition, a cover page is auto-generated and included:
 
 ```text
-קובץ_סיכום_01_001_{ID}{YEAR}.pdf
+Summary_01_001_{ID}{YEAR}.pdf
 ```
 
 Both the summary file and all renamed attachments are bundled into a single ZIP ready for upload.

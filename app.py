@@ -1252,7 +1252,11 @@ def download_txt():
 @app.route("/reset")
 def reset():
     _delete_session_uploads()
+    # Clear only wizard data; keep user_id so the user stays logged in
+    user_id = session.get("user_id")
     session.clear()
+    if user_id is not None:
+        session["user_id"] = user_id
     return redirect(url_for("step_goal"))
 
 

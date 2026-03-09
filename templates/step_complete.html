@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}הקובץ מוכן — רובומס{% endblock %}
+{% block title %}סיכום ודוח מסמכים — רובומס{% endblock %}
 
 {% block content %}
 <div class="complete-wrap">
@@ -25,6 +25,148 @@
       הורדת קובץ ה-ZIP
     </a>
     <p class="complete-filename">📦 &nbsp;צרופות לטעינה מס הכנסה.zip</p>
+  </div>
+
+  <!-- Download cards (ZIP + TXT) -->
+  <section class="download-section">
+    <h3 class="download-section-title">קבצים לטעינה למס הכנסה</h3>
+    <p class="download-section-sub">
+      הקבצים הופקו בהצלחה וזמינים להורדה. ניתן לעיין בקובץ הטקסט לעצמכם או להעביר לרואה החשבון.
+    </p>
+    <div class="download-grid">
+      <article class="download-card">
+        <div class="download-card-badge">ZIP</div>
+        <h4 class="download-card-title">צרופות לטעינה למס הכנסה</h4>
+        <p class="download-card-text">
+          קובץ ZIP עם כל המסמכים שהועלו, ממוספרים ומוכנים לטעינה במערכת מס הכנסה כדוח שנתי.
+        </p>
+        <a href="{{ url_for('download_zip') }}" class="btn btn--primary btn--full">
+          ⬇️ &nbsp; הורדת קובץ ה-ZIP
+        </a>
+      </article>
+
+      <article class="download-card">
+        <div class="download-card-badge download-card-badge--txt">TXT</div>
+        <h4 class="download-card-title">קובץ טעינה למס הכנסה (טקסט)</h4>
+        <p class="download-card-text">
+          קובץ טקסט מסכם (לדוגמה: ‎all_records_{{ year }}_{{ personal.id_number or 'XXXXXXXXX' }}.txt),
+          המרכז את הנתונים שסימנתם. מיועד לקריאה שלכם או לשיתוף עם גורם מקצועי בלבד.
+        </p>
+        <a href="{{ url_for('download_txt') }}" class="btn btn--outline btn--full">
+          ⬇️ &nbsp; הורדת קובץ ה-TXT
+        </a>
+      </article>
+    </div>
+  </section>
+
+  <!-- Summary cards -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-card-title">סיכום כללי</div>
+      <dl class="summary-dl">
+        {% if goal_label %}
+        <div>
+          <dt>מטרה</dt>
+          <dd>{{ goal_label }}</dd>
+        </div>
+        {% endif %}
+        {% if year %}
+        <div>
+          <dt>שנת מס</dt>
+          <dd>{{ year }}</dd>
+        </div>
+        {% endif %}
+        {% if personal.id_number %}
+        <div>
+          <dt>תעודת זהות</dt>
+          <dd>{{ personal.id_number }}</dd>
+        </div>
+        {% endif %}
+        {% if income_summary %}
+        <div>
+          <dt>מספר קבוצות הכנסה</dt>
+          <dd>{{ income_summary|length }}</dd>
+        </div>
+        {% endif %}
+        {% if deductions_labels %}
+        <div>
+          <dt>מספר סוגי זיכוי שסומנו</dt>
+          <dd>{{ deductions_labels|length }}</dd>
+        </div>
+        {% endif %}
+        {% if docs_summary %}
+        <div>
+          <dt>מספר סוגי מסמכים נדרשים</dt>
+          <dd>{{ docs_summary|length }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+
+    {% if income_summary %}
+    <div class="summary-card">
+      <div class="summary-card-title">מקורות הכנסה שסומנו</div>
+      <div class="summary-pill-groups">
+        {% for group in income_summary %}
+        <div class="summary-pill-group">
+          <div class="summary-pill-group-title">{{ group.group_title }}</div>
+          <div class="summary-pill-row">
+            {% for label in group.items %}
+            <span class="summary-pill">{{ label }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if deductions_labels %}
+    <div class="summary-card">
+      <div class="summary-card-title">זיכויים וניכויים שסימנתם</div>
+      <div class="summary-pill-row">
+        {% for label in deductions_labels %}
+        <span class="summary-pill summary-pill--gold">{{ label }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if docs_summary %}
+    <div class="summary-card summary-card--table">
+      <div class="summary-card-title">מסמכים שצפויים להידרש</div>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>קוד צרופה</th>
+            <th>שם מסמך</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in docs_summary %}
+          <tr>
+            <td><code>{{ d.code }}</code></td>
+            <td>{{ d.label }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="summary-hint">
+        הרשימה היא להכוונה בלבד ואינה מחליפה בדיקה סופית מול רשות המסים או רואה חשבון.
+      </p>
+    </div>
+    {% endif %}
+
+    {% if insights %}
+    <div class="summary-card">
+      <div class="summary-card-title">תובנות מהשאלון</div>
+      <ul class="summary-insights">
+        {% for insight in insights %}
+        <li>{{ insight }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
   </div>
 
   <!-- Instructions -->

@@ -66,6 +66,15 @@
 
   <!-- ── Page ─────────────────────────────────────────────────────────── -->
   <main class="main-wrap">
+    {% if errors %}
+    <div class="form-errors">
+      <ul>
+        {% for err in errors %}
+        <li>{{ err }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 

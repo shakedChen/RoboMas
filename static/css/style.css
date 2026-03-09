@@ -250,6 +250,25 @@ img { display: block; max-width: 100%; }
   padding: 44px 28px 80px;
 }
 
+/* Inline form errors */
+.form-errors {
+  background: #fff5f5;
+  border: 1px solid var(--red);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: #742a2a;
+  box-shadow: var(--shadow-sm);
+}
+.form-errors ul {
+  list-style: disc;
+  padding-right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* ── Footer ─────────────────────────────────────────────────────────────── */
 .site-footer {
   background: var(--blue-deep);
@@ -988,6 +1007,168 @@ input[type="date"]:focus {
 .complete-instructions a { color: var(--blue-mid); font-weight: 700; }
 .complete-instructions a:hover { text-decoration: underline; }
 .complete-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+
+/* Download cards for ZIP + TXT */
+.download-section {
+  margin-top: 28px;
+}
+.download-section-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--blue-deep);
+  margin-bottom: 6px;
+}
+.download-section-sub {
+  font-size: 14px;
+  color: var(--text-mid);
+  margin-bottom: 16px;
+}
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.download-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 18px 20px 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.download-card-badge {
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  background: var(--blue-ice);
+  color: var(--text-light);
+}
+.download-card-badge--txt {
+  background: var(--gold-light);
+  color: var(--gold-dark);
+}
+.download-card-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.download-card-text {
+  font-size: 13px;
+  color: var(--text-mid);
+  line-height: 1.7;
+  flex: 1;
+}
+
+/* Summary grid under complete banner */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin: 28px 0;
+}
+.summary-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+}
+.summary-card--table {
+  padding-bottom: 16px;
+}
+.summary-card-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--blue-deep);
+  margin-bottom: 10px;
+}
+.summary-dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 18px;
+}
+.summary-dl div { display: flex; flex-direction: column; gap: 2px; }
+.summary-dl dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-light);
+}
+.summary-dl dd {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-mid);
+}
+.summary-pill-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.summary-pill-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+.summary-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.summary-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--blue-ice);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-mid);
+}
+.summary-pill--gold {
+  background: var(--gold-light);
+  border-color: var(--gold);
+  color: #7a5000;
+}
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 4px;
+}
+.summary-table thead {
+  background: var(--blue-deep);
+  color: white;
+}
+.summary-table th,
+.summary-table td {
+  padding: 7px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+.summary-table code {
+  background: var(--blue-ice);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.summary-hint {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-top: 8px;
+}
+.summary-insights {
+  list-style: disc;
+  padding-right: 18px;
+  font-size: 13px;
+  color: var(--text-mid);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    BUTTONS

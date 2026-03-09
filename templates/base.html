@@ -40,10 +40,19 @@
       {% endif %}
 
       <div class="header-actions">
-        {% if personal_name %}
-        <span class="header-user">שלום, {{ personal_name }}</span>
+        {% if current_user %}
+        <span class="header-user">שלום, {{ current_user.username }}</span>
         {% endif %}
-        <a href="{{ url_for('reset') }}" class="btn-reset">התחל מחדש</a>
+        {% if is_admin %}
+        <a href="{{ url_for('admin_dashboard') }}" class="btn-reset">לוח ניהול</a>
+        {% endif %}
+        {% if current_user %}
+        <a href="{{ url_for('logout') }}" class="btn-reset">התנתקות</a>
+        {% else %}
+        <a href="{{ url_for('login') }}" class="btn-reset">התחברות</a>
+        <a href="{{ url_for('signup') }}" class="btn-reset">הרשמה</a>
+        {% endif %}
+        <a href="{{ url_for('reset') }}" class="btn-reset">צור דוח</a>
       </div>
     </div>
   </header>

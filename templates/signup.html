@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}הרשמה — רובומס{% endblock %}
+
+{% block content %}
+<div class="narrow">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">✨ משתמש חדש</div>
+    <h2>יצירת חשבון רובומס</h2>
+    <p>
+      צרו משתמש כדי לשמור על הרשאות מנהל ולראות סטטיסטיקות. משתמשים רגילים
+      ייהנו מגישה נוחה יותר, אך לא יראו אפשרויות ניהול.
+    </p>
+  </div>
+
+  <div class="form-card">
+    <form method="POST" action="{{ url_for('signup') }}">
+      <div class="form-row">
+        <div class="form-group form-group--full">
+          <label class="form-label">
+            שם משתמש <span class="req">*</span>
+          </label>
+          <input
+            type="text"
+            name="username"
+            class="form-input"
+            autocomplete="username"
+            required
+            value="{{ username or '' }}"
+          />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">
+            סיסמה <span class="req">*</span>
+          </label>
+          <input
+            type="password"
+            name="password"
+            class="form-input"
+            autocomplete="new-password"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label class="form-label">
+            אישור סיסמה <span class="req">*</span>
+          </label>
+          <input
+            type="password"
+            name="confirm"
+            class="form-input"
+            autocomplete="new-password"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="info-box">
+        <strong>אבטחה</strong>
+        <p>
+          הסיסמה נשמרת כערך מוצפן בלבד (hash), ואינה נשמרת בטקסט גלוי.
+          כתובת ה-IP של המשתמש תישמר לצורך אבטחה וסטטיסטיקות בסיסיות בלבד.
+        </p>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start">
+        <button type="submit" class="btn btn--gold btn--lg">
+          ✨ &nbsp; יצירת משתמש
+        </button>
+        <a href="{{ url_for('login') }}" class="btn btn--outline btn--lg">
+          כבר רשומים? התחברות
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+

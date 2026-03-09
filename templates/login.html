@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}התחברות מנהל/משתמש — רובומס{% endblock %}
+
+{% block content %}
+<div class="narrow">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">🔐 כניסה למערכת</div>
+    <h2>התחברות לחשבון רובומס</h2>
+    <p>
+      התחברו עם שם המשתמש והסיסמה שלכם. משתמשי מנהל יוכלו לגשת גם ללוח הניהול
+      והסטטיסטיקות.
+    </p>
+  </div>
+
+  <div class="form-card">
+    <form method="POST" action="{{ url_for('login', next=request.args.get('next')) }}">
+      <div class="form-row">
+        <div class="form-group form-group--full">
+          <label class="form-label">
+            שם משתמש <span class="req">*</span>
+          </label>
+          <input
+            type="text"
+            name="username"
+            class="form-input"
+            autocomplete="username"
+            required
+            value="{{ username or '' }}"
+          />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group form-group--full">
+          <label class="form-label">
+            סיסמה <span class="req">*</span>
+          </label>
+          <input
+            type="password"
+            name="password"
+            class="form-input"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start">
+        <button type="submit" class="btn btn--primary btn--lg">
+          🔐 &nbsp; התחברות
+        </button>
+        <a href="{{ url_for('signup') }}" class="btn btn--outline btn--lg">
+          ✨ &nbsp; יצירת משתמש חדש
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+

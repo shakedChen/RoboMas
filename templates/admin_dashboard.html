@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}לוח ניהול — רובומס{% endblock %}
+
+{% block content %}
+<div class="page-center--narrow">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">🛡 לוח ניהול</div>
+    <h2>סטטיסטיקות מערכת ומשתמשים</h2>
+    <p>
+      לוח זה זמין למנהלי מערכת בלבד. ניתן לצפות בסטטיסטיקות ביקורים,
+      משתמשים רשומים ולהעלות משתמשים נוספים להרשאת מנהל או להסיר אותם.
+    </p>
+  </div>
+
+  <!-- High-level stats -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-card-title">סיכום משתמשים</div>
+      <div class="summary-dl">
+        <div>
+          <dt>מספר משתמשים רשומים</dt>
+          <dd>{{ stats.total_users }}</dd>
+        </div>
+        <div>
+          <dt>מנהלים</dt>
+          <dd>{{ stats.admin_count }}</dd>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-card-title">תנועת מבקרים</div>
+      <div class="summary-dl">
+        <div>
+          <dt>סה״כ ביקורים</dt>
+          <dd>{{ stats.total_visits }}</dd>
+        </div>
+        <div>
+          <dt>מספר כתובות IP ייחודיות</dt>
+          <dd>{{ stats.unique_ips or 0 }}</dd>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Users table -->
+  <div class="summary-card summary-card--table" style="margin-top:18px">
+    <div class="summary-card-title">משתמשים רשומים</div>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>שם משתמש</th>
+          <th>הרשאה</th>
+          <th>נוצר ב־</th>
+          <th>כניסה אחרונה</th>
+          <th>IP אחרון</th>
+          <th>פעולות</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.username }}</td>
+          <td>
+            {% if u.is_admin %}
+            <span class="summary-pill summary-pill--gold">מנהל</span>
+            {% else %}
+            <span class="summary-pill">משתמש</span>
+            {% endif %}
+          </td>
+          <td>{{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '-' }}</td>
+          <td>{{ u.last_login_at.strftime('%Y-%m-%d %H:%M') if u.last_login_at else '-' }}</td>
+          <td>{{ u.last_ip or '-' }}</td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              {% if not u.is_admin %}
+              <form method="POST" action="{{ url_for('admin_make_admin', user_id=u.id) }}">
+                <button type="submit" class="btn btn--outline" style="font-size:12px;padding:6px 10px">
+                  ⬆️ מנהל
+                </button>
+              </form>
+              {% endif %}
+              <form method="POST" action="{{ url_for('admin_delete_user', user_id=u.id) }}"
+                    onsubmit="return confirm('למחוק משתמש {{ u.username }}? פעולה זו אינה ניתנת לביטול.');">
+                <button type="submit" class="btn btn--ghost" style="font-size:12px;padding:6px 10px">
+                  🗑 מחיקה
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="summary-hint">
+      פעולות ההרשאה והמחיקה נגישות רק למנהלים ומעובדות בצד השרת, כך שלא ניתן להעלות הרשאות
+      מהדפדפן בלבד.
+    </p>
+  </div>
+
+  <!-- Recent visits -->
+  <div class="summary-card summary-card--table" style="margin-top:18px">
+    <div class="summary-card-title">ביקורים אחרונים</div>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>זמן</th>
+          <th>נתיב</th>
+          <th>שיטה</th>
+          <th>IP</th>
+          <th>משתמש</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in recent_visits %}
+        <tr>
+          <td>{{ v.created_at.strftime('%Y-%m-%d %H:%M') if v.created_at else '-' }}</td>
+          <td>{{ v.path }}</td>
+          <td>{{ v.method }}</td>
+          <td>{{ v.ip or '-' }}</td>
+          <td>{{ v.user.username if v.user else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="summary-hint">
+      הנתונים שומרים על רמת פירוט מינימלית לצורך אבטחה וסטטיסטיקה בלבד (אין שמירת תוכן טפסים).
+    </p>
+  </div>
+</div>
+{% endblock %}
+

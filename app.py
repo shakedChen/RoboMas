@@ -1,25 +1,122 @@
 from __future__ import annotations
 
-from flask import (
-    Flask, render_template, request, session,
-    redirect, url_for, send_file
-)
 import io
 import os
-import zipfile
-import uuid
 import shutil
+import uuid
+import zipfile
+from datetime import datetime, timedelta
 from pathlib import Path
+
+from flask import (
+    Flask,
+    abort,
+    g,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+    send_file,
+)
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
+from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from fpdf import FPDF
 
 app = Flask(__name__)
-app.secret_key = "robomas-express-il-tax-2024-xk9z"
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "robomas-express-il-tax-2024-xk9z",  # dev fallback only; override in production
+)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
 
+# ── Database configuration (SQLAlchemy → parameterized queries, mitigates SQL injection) ──
 BASE_DIR = Path(__file__).parent
+default_sqlite_path = BASE_DIR / "robomas.db"
+database_url = os.environ.get("DATABASE_URL", f"sqlite:///{default_sqlite_path}")
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
+
+# ── Upload storage (ephemeral per-session; cleaned aggressively) ──────────────────────────
 UPLOAD_FOLDER = BASE_DIR / "uploads"
 UPLOAD_FOLDER.mkdir(exist_ok=True)
+
+# ── Auth / stats models ───────────────────────────────────────────────────────
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_login_at = db.Column(db.DateTime)
+    last_ip = db.Column(db.String(64))
+
+    visits = db.relationship("Visit", back_populates="user", lazy="dynamic")
+
+    def set_password(self, raw: str) -> None:
+        # Use PBKDF2 instead of scrypt to support Python builds without hashlib.scrypt
+        self.password_hash = generate_password_hash(raw, method="pbkdf2:sha256")
+
+    def check_password(self, raw: str) -> bool:
+        return check_password_hash(self.password_hash, raw)
+
+
+class Visit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    path = db.Column(db.String(400), nullable=False)
+    method = db.Column(db.String(10), nullable=False)
+    ip = db.Column(db.String(64))
+    user_agent = db.Column(db.String(300))
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"))
+    user = db.relationship("User", back_populates="visits")
+
+
+def _get_client_ip() -> str:
+    """Best-effort IP, aware of common proxy headers (Render/NGINX)."""
+    # X-Forwarded-For may contain a comma-separated list; take first public entry.
+    xff = request.headers.get("X-Forwarded-For", "") or request.headers.get(
+        "X-Real-IP", ""
+    )
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.remote_addr or ""
+
+
+def _ensure_initial_admin() -> None:
+    """Idempotently ensure the configured seed admin exists."""
+    seed_username = "shutzibutzi"
+    seed_password = "gsdgsdg#@$@#23dfs!"
+    existing = User.query.filter_by(username=seed_username).first()
+    if existing:
+        if not existing.is_admin:
+            existing.is_admin = True
+            db.session.commit()
+        return
+    admin = User(
+        username=seed_username,
+        is_admin=True,
+        created_at=datetime.utcnow(),
+    )
+    admin.set_password(seed_password)
+    db.session.add(admin)
+    db.session.commit()
+
+
+with app.app_context():
+    db.create_all()
+    _ensure_initial_admin()
+
 
 # ── Document type registry ────────────────────────────────────────────────────
 DOC_TYPES = {
@@ -402,9 +499,38 @@ def _build_summary_pdf(
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+def _cleanup_old_uploads(max_age_hours: int = 6) -> None:
+    """Best-effort removal of stale upload directories (no long-term storage)."""
+    cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+    try:
+        for child in UPLOAD_FOLDER.iterdir():
+            if not child.is_dir():
+                continue
+            try:
+                mtime = datetime.utcfromtimestamp(child.stat().st_mtime)
+            except OSError:
+                continue
+            if mtime < cutoff:
+                shutil.rmtree(child, ignore_errors=True)
+    except FileNotFoundError:
+        return
+
+
+def _delete_session_uploads() -> None:
+    sid = session.get("sid", "")
+    if not sid:
+        return
+    d = UPLOAD_FOLDER / sid
+    if d.exists():
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def get_session_upload_dir() -> Path:
     if "sid" not in session:
         session["sid"] = str(uuid.uuid4())
+    _cleanup_old_uploads()
     path = UPLOAD_FOLDER / session["sid"]
     path.mkdir(exist_ok=True)
     return path
@@ -469,20 +595,177 @@ def _is_valid_israeli_id(id_number: str) -> bool:
     return total % 10 == 0
 
 
+@app.before_request
+def _load_user_and_log_visit():
+    """Attach current user to `g` and log basic visit statistics."""
+    user = None
+    uid = session.get("user_id")
+    if uid is not None:
+        user = User.query.get(uid)
+    g.current_user = user
+
+    # Log only for normal app routes (skip static/assets)
+    if request.endpoint and not request.endpoint.startswith("static"):
+        try:
+            visit = Visit(
+                path=request.path[:400],
+                method=request.method[:10],
+                ip=_get_client_ip()[:64],
+                user_agent=(request.headers.get("User-Agent") or "")[:300],
+                user=user,
+            )
+            db.session.add(visit)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+
 @app.context_processor
 def inject_step_info():
     step, label = _STEP_MAP.get(request.endpoint, (0, ""))
     year = session.get("year", "")
+    user = getattr(g, "current_user", None)
     return {
-        "current_step":  step,
-        "total_steps":   _TOTAL_STEPS,
-        "step_label":    label,
-        "session_year":  year,
+        "current_step": step,
+        "total_steps": _TOTAL_STEPS,
+        "step_label": label,
+        "session_year": year,
         "personal_name": (session.get("personal") or {}).get("first_name", ""),
+        "current_user": user,
+        "is_admin": bool(user and user.is_admin),
     }
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+# ── Auth & admin helpers ─────────────────────────────────────────────────────-
+
+
+def require_admin() -> User:
+    user = getattr(g, "current_user", None)
+    if not user or not user.is_admin:
+        abort(403)
+    return user
+
+
+# ── Auth routes ───────────────────────────────────────────────────────────────
+
+
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if request.method == "POST":
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        confirm = request.form.get("confirm") or ""
+        errors: list[str] = []
+
+        if not username:
+            errors.append("שם משתמש הוא שדה חובה.")
+        if len(password) < 8:
+            errors.append("הסיסמה חייבת להכיל לפחות 8 תווים.")
+        if password != confirm:
+            errors.append("אישור הסיסמה אינו תואם.")
+        if User.query.filter_by(username=username).first():
+            errors.append("שם המשתמש כבר קיים במערכת.")
+
+        if errors:
+            return render_template("signup.html", errors=errors, username=username)
+
+        user = User(username=username, is_admin=False)
+        user.set_password(password)
+        user.last_login_at = datetime.utcnow()
+        user.last_ip = _get_client_ip()
+        db.session.add(user)
+        db.session.commit()
+        session["user_id"] = user.id
+        return redirect(url_for("step_goal"))
+
+    return render_template("signup.html", errors=[])
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        errors: list[str] = []
+
+        user = User.query.filter_by(username=username).first()
+        if not user or not user.check_password(password):
+            errors.append("שם משתמש או סיסמה שגויים.")
+        if errors:
+            return render_template("login.html", errors=errors, username=username)
+
+        session["user_id"] = user.id
+        user.last_login_at = datetime.utcnow()
+        user.last_ip = _get_client_ip()
+        db.session.commit()
+
+        next_url = request.args.get("next")
+        if next_url and next_url.startswith("/"):
+            return redirect(next_url)
+        return redirect(url_for("step_goal"))
+
+    return render_template("login.html", errors=[])
+
+
+@app.route("/logout")
+def logout():
+    session.pop("user_id", None)
+    return redirect(url_for("step_goal"))
+
+
+# ── Admin routes ──────────────────────────────────────────────────────────────
+
+
+@app.route("/admin")
+def admin_dashboard():
+    user = getattr(g, "current_user", None)
+    if not user:
+        return redirect(url_for("login", next=request.path))
+    require_admin()
+
+    stats = {
+        "total_users": User.query.count(),
+        "admin_count": User.query.filter_by(is_admin=True).count(),
+        "total_visits": Visit.query.count(),
+        "unique_ips": db.session.scalar(db.select(func.count(func.distinct(Visit.ip)))),
+    }
+    recent_visits = (
+        Visit.query.order_by(Visit.created_at.desc()).limit(50).all()
+    )
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template(
+        "admin_dashboard.html",
+        stats=stats,
+        users=users,
+        recent_visits=recent_visits,
+    )
+
+
+@app.post("/admin/users/<int:user_id>/make-admin")
+def admin_make_admin(user_id: int):
+    admin = require_admin()
+    target = User.query.get_or_404(user_id)
+    if not target.is_admin:
+        target.is_admin = True
+        db.session.commit()
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.post("/admin/users/<int:user_id>/delete")
+def admin_delete_user(user_id: int):
+    admin = require_admin()
+    target = User.query.get_or_404(user_id)
+    if target.id == admin.id:
+        # Prevent accidental self-deletion of the only admin
+        other_admins = User.query.filter(User.id != admin.id, User.is_admin.is_(True)).count()
+        if other_admins == 0:
+            abort(400)
+    db.session.delete(target)
+    db.session.commit()
+    return redirect(url_for("admin_dashboard"))
+
+
+# ── Wizard routes ─────────────────────────────────────────────────────────────
 @app.route("/", methods=["GET", "POST"])
 def step_goal():
     if request.method == "POST":
@@ -694,6 +977,12 @@ def step_taxfile():
         )
 
 
+@app.route("/taxfile/help")
+def taxfile_help():
+    year = session.get("year", "")
+    return render_template("taxfile_help.html", year=year)
+
+
 @app.route("/income/general", methods=["GET", "POST"])
 def step_income_general():
     if request.method == "POST":
@@ -826,8 +1115,8 @@ def download_zip():
     # Collect uploaded entries (for summary manifest)
     entries: list[tuple[str, str, str]] = []   # (zip_name, label, original_name)
 
-    zip_path = upload_dir / "output.zip"
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for doc_key, doc_info in DOC_TYPES.items():
             doc_dir = upload_dir / doc_key
             if not doc_dir.exists():
@@ -846,8 +1135,12 @@ def download_zip():
         summary_name = f"קובץ_סיכום_01_001_{padded_id}{year}.pdf"
         zf.writestr(summary_name, summary_pdf)
 
+    # Reset buffer for sending, then immediately delete all per-session files
+    buf.seek(0)
+    _delete_session_uploads()
+
     return send_file(
-        str(zip_path),
+        buf,
         as_attachment=True,
         download_name="צרופות לטעינה מס הכנסה.zip",
         mimetype="application/zip",
@@ -932,14 +1225,11 @@ def download_txt():
 
 @app.route("/reset")
 def reset():
-    sid = session.get("sid", "")
-    if sid:
-        d = UPLOAD_FOLDER / sid
-        if d.exists():
-            shutil.rmtree(d, ignore_errors=True)
+    _delete_session_uploads()
     session.clear()
     return redirect(url_for("step_goal"))
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5431)
+    # Local dev server; in production use gunicorn and a strong SECRET_KEY.
+    app.run(debug=False, port=int(os.environ.get("PORT", 5431)))

@@ -39,6 +39,20 @@ python app.py
 
 Then open [http://127.0.0.1:5431](http://127.0.0.1:5431) in your browser.
 
+### Admin login, users & stats
+
+- There is a built-in admin user **`shutzibutzi`** with password **`gsdgsdg#@$@#23dfs!`** created on first run.
+- You can sign up additional users via the **הרשמה** link in the header.
+- Only admins can access `/admin`, promote other users to admin, or delete users.
+- Every request logs a lightweight `Visit` record with path, method, timestamp, and IP for statistics.
+
+### Upload privacy
+
+- Uploaded documents are stored in a per-session folder under `uploads/` **only as long as needed** to build the ZIP.
+- When the user downloads the ZIP or presses “התחל מחדש”, all files for that session are deleted.
+- A background cleanup pass also removes upload folders older than a few hours.
+- No uploaded documents are stored in the database or committed to git.
+
 ## Project Structure
 
 ```text
@@ -54,11 +68,33 @@ robomas/
 │   ├── step_income_*.html   # Steps 6–9 — income categories
 │   ├── step_deductions.html # Step 10 — deductions & credits
 │   ├── step_documents.html  # Step 11 — document upload
-│   └── step_complete.html   # Step 12 — download ZIP
+│   ├── step_complete.html   # Step 12 — download ZIP
+│   ├── login.html           # Login page
+│   ├── signup.html          # Sign-up page
+│   └── admin_dashboard.html # Admin-only stats & user management
 ├── static/
 │   ├── css/style.css
 │   └── js/main.js
-└── uploads/                 # Temporary upload storage (gitignored)
+└── uploads/                 # Temporary upload storage (gitignored, auto-cleaned)
+
+## Deploying to Render with Git
+
+1. **Push this repo to GitHub** (or GitLab/Bitbucket).
+2. In Render, create a new **Web Service** and connect it to your repo.
+3. Set:
+   - **Environment**: `Python 3`
+   - **Build command**: `pip install -r requirements.txt`
+   - **Start command**: `gunicorn app:app`
+4. Add environment variables:
+   - `SECRET_KEY` — a long random string (do *not* reuse the default).
+   - `DATABASE_URL` — Render’s PostgreSQL URL (Render sets this for you if you add a Postgres add‑on).
+5. Render will expose a public URL; every new git push to your main branch will automatically deploy a new version.
+
+Security notes:
+
+- SQL queries go through SQLAlchemy with bound parameters, which mitigates SQL injection.
+- Passwords are stored only as salted hashes (using Werkzeug), never in plaintext.
+- Session cookies should be marked **Secure/HTTPOnly** by running behind HTTPS (Render provides TLS).
 ```
 
 ## ZIP Output Format

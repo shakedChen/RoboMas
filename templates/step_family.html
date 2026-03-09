@@ -87,7 +87,7 @@
       <div class="qna-card-header">
         <div class="qna-bullet">3</div>
         <div class="qna-question-text">
-          האם יש לכם ילדים שנולדו בין השנים 2003–{{ year }}?
+          האם יש לכם ילדים שנולדו בין השנים 2003–{{ year }} (כולל)?
         </div>
       </div>
       <div class="qna-card-body">
@@ -112,10 +112,10 @@
              style="display: {% if data.has_children == 'yes' %}flex{% else %}none{% endif %}">
           <span class="cb-icon">👶</span>
           <div style="flex:1">
-            <strong>כמה ילדים יש לכם?</strong>
+            <strong>כמה ילדים היו לכם בסוף שנת {{ year }}?</strong>
             <p style="margin-bottom:12px">
-              נקודות הזיכוי מחושבות לפי מספר הילדים וגילם. הזינו את מספר הילדים
-              שנולדו בתחום השנים הנ"ל.
+              נקודות הזיכוי במס הכנסה מחושבות לפי מספר הילדים וגילם בשנה זו.
+              כאן מספיק לנו לדעת את מספר הילדים שנולדו בין 2003 ל‑{{ year }}, בלי לפרט את גיל כל ילד.
             </p>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
               <label style="font-weight:700;font-size:14px">מספר ילדים:</label>

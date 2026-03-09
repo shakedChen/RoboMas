@@ -597,7 +597,7 @@ def _is_valid_israeli_id(id_number: str) -> bool:
 
 @app.before_request
 def _load_user_and_log_visit():
-    """Attach current user to `g` and log basic visit statistics."""
+    """Attach current user to `g`, protect the funnel, and log basic visit statistics."""
     user = None
     uid = session.get("user_id")
     if uid is not None:
@@ -618,6 +618,32 @@ def _load_user_and_log_visit():
             db.session.commit()
         except Exception:
             db.session.rollback()
+
+    # Require login for the main RoboMas funnel (wizard + downloads)
+    protected_endpoints = {
+        "step_goal",
+        "step_year",
+        "step_personal",
+        "step_family",
+        "step_taxfile",
+        "taxfile_help",
+        "step_income_general",
+        "step_income_capital",
+        "step_income_pension",
+        "step_income_other",
+        "step_deductions",
+        "step_documents",
+        "step_complete",
+        "download_zip",
+        "download_txt",
+        "reset",
+    }
+    if (
+        request.endpoint in protected_endpoints
+        and not user
+        and request.endpoint not in {"login", "signup"}
+    ):
+        return redirect(url_for("login", next=request.path))
 
 
 @app.context_processor

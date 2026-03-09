@@ -365,6 +365,8 @@ def _build_report_context() -> dict:
         insights.append("סימנתם תרומות לפי סעיף 46 — ייתכן זיכוי מס בגין התרומות.")
     if "military" in deductions_keys:
         insights.append("סימנתם חייל/ת משוחרר/ת או שירות לאומי — ייתכן זיכוי חד-פעמי לשנים הראשונות לאחר השחרור.")
+    if "work_loss" in deductions_keys:
+        insights.append("סימנתם ביטוח חיים / אובדן כושר עבודה — ייתכן זיכוי במס; לרוב אין צורך במסמך נפרד בהגשה.")
 
     return {
         "year": year,
@@ -388,114 +390,137 @@ _MIME_TO_EXT = {
     "application/octet-stream": ".pdf",  # treat unknown binary as PDF
 }
 
-# ── Hebrew font path ───────────────────────────────────────────────────────────
-_HEBREW_FONT = "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
+# ── Hebrew font path (macOS vs Linux on Render) ───────────────────────────────
+_HEBREW_FONT_CANDIDATES = [
+    "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",  # macOS
+    "/usr/share/fonts/truetype/noto/NotoSansHebrew-Regular.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSansHebrew-Regular.ttf",
+    str(BASE_DIR / "static" / "fonts" / "NotoSansHebrew-Regular.ttf"),
+]
 
-# ── Summary cover-page PDF ────────────────────────────────────────────────────
+
+def _get_hebrew_font_path() -> str | None:
+    """First existing path that can be used for Hebrew in the summary PDF."""
+    for path in _HEBREW_FONT_CANDIDATES:
+        if path and os.path.isfile(path):
+            return path
+    return None
+
+
+def _build_summary_pdf_fallback(
+    personal: dict,
+    year: int | str,
+    entries: list[tuple[str, str, str]],
+) -> bytes:
+    """ASCII-only summary PDF when Hebrew font is not available (e.g. on Render Linux)."""
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "RoboMas - Tax attachments summary", ln=True)
+    pdf.set_font("Helvetica", "", 11)
+    pdf.cell(0, 6, f"Year: {year}", ln=True)
+    id_num = (personal.get("id_number") or "").strip()
+    if id_num:
+        pdf.cell(0, 6, f"ID: {id_num}", ln=True)
+    pdf.ln(4)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 8, "Documents in ZIP:", ln=True)
+    pdf.set_font("Helvetica", "", 9)
+    for zip_name, _label, _orig in entries:
+        pdf.cell(0, 6, zip_name, ln=True)
+    if not entries:
+        pdf.cell(0, 6, "(none)", ln=True)
+    return bytes(pdf.output())
+
+
 def _build_summary_pdf(
     personal: dict,
     year: int | str,
     entries: list[tuple[str, str, str]],
 ) -> bytes:
     """Return bytes of a Hebrew cover-page PDF listing all uploaded documents."""
-    pdf = FPDF(orientation="P", unit="mm", format="A4")
-    pdf.set_auto_page_break(auto=True, margin=20)
-    pdf.add_font("HEB", "", _HEBREW_FONT)
-    pdf.add_font("HEB", "B", _HEBREW_FONT)
+    font_path = _get_hebrew_font_path()
+    if not font_path:
+        return _build_summary_pdf_fallback(personal, year, entries)
+    try:
+        pdf = FPDF(orientation="P", unit="mm", format="A4")
+        pdf.set_auto_page_break(auto=True, margin=20)
+        pdf.add_font("HEB", "", font_path)
+        pdf.add_font("HEB", "B", font_path)
 
-    # ── Cover page ────────────────────────────────────────────────────────────
-    pdf.add_page()
-
-    # Deep blue header bar
-    pdf.set_fill_color(10, 36, 99)
-    pdf.rect(0, 0, 210, 42, "F")
-
-    # Logo text
-    pdf.set_font("HEB", "B", 24)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_xy(0, 10)
-    pdf.cell(210, 10, "רובומס", align="C")
-
-    pdf.set_font("HEB", "", 12)
-    pdf.set_xy(0, 24)
-    pdf.cell(210, 8, "צרופות לטעינה — מס הכנסה", align="C")
-
-    pdf.set_text_color(30, 30, 30)
-
-    # Year pill
-    pdf.set_fill_color(230, 240, 255)
-    pdf.set_draw_color(100, 140, 210)
-    pdf.set_line_width(0.5)
-    pdf.rect(75, 50, 60, 12, "FD")
-    pdf.set_font("HEB", "B", 14)
-    pdf.set_text_color(10, 36, 99)
-    pdf.set_xy(75, 52)
-    pdf.cell(60, 8, f"שנת מס {year}", align="C")
-
-    pdf.set_text_color(30, 30, 30)
-    pdf.set_y(72)
-
-    # Personal info block
-    name   = personal.get("name", "").strip()
-    id_num = personal.get("id_number", "").strip()
-    pdf.set_font("HEB", "B", 11)
-    if name:
-        pdf.set_x(0)
-        pdf.cell(190, 8, name, align="R")
-        pdf.ln(7)
-    if id_num:
-        pdf.set_x(0)
-        pdf.cell(190, 7, f"ת.ז.: {id_num}", align="R")
-        pdf.ln(7)
-
-    pdf.ln(6)
-
-    # Section title
-    pdf.set_fill_color(10, 36, 99)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_x(15)
-    pdf.set_font("HEB", "B", 11)
-    pdf.cell(180, 9, "רשימת המסמכים שצורפו", fill=True, align="R")
-    pdf.ln(12)
-
-    pdf.set_text_color(30, 30, 30)
-
-    if entries:
-        # Table header
-        pdf.set_fill_color(240, 245, 255)
-        pdf.set_font("HEB", "B", 9)
+        pdf.add_page()
+        pdf.set_fill_color(10, 36, 99)
+        pdf.rect(0, 0, 210, 42, "F")
+        pdf.set_font("HEB", "B", 24)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_xy(0, 10)
+        pdf.cell(210, 10, "רובומס", align="C")
+        pdf.set_font("HEB", "", 12)
+        pdf.set_xy(0, 24)
+        pdf.cell(210, 8, "צרופות לטעינה — מס הכנסה", align="C")
+        pdf.set_text_color(30, 30, 30)
+        pdf.set_fill_color(230, 240, 255)
+        pdf.set_draw_color(100, 140, 210)
+        pdf.set_line_width(0.5)
+        pdf.rect(75, 50, 60, 12, "FD")
+        pdf.set_font("HEB", "B", 14)
+        pdf.set_text_color(10, 36, 99)
+        pdf.set_xy(75, 52)
+        pdf.cell(60, 8, f"שנת מס {year}", align="C")
+        pdf.set_text_color(30, 30, 30)
+        pdf.set_y(72)
+        name = personal.get("name", "").strip()
+        id_num = personal.get("id_number", "").strip()
+        pdf.set_font("HEB", "B", 11)
+        if name:
+            pdf.set_x(0)
+            pdf.cell(190, 8, name, align="R")
+            pdf.ln(7)
+        if id_num:
+            pdf.set_x(0)
+            pdf.cell(190, 7, f"ת.ז.: {id_num}", align="R")
+            pdf.ln(7)
+        pdf.ln(6)
+        pdf.set_fill_color(10, 36, 99)
+        pdf.set_text_color(255, 255, 255)
         pdf.set_x(15)
-        pdf.cell(90, 8, "שם קובץ ב-ZIP", border=1, fill=True, align="C")
-        pdf.cell(90, 8, "סוג מסמך", border=1, fill=True, align="C")
-        pdf.ln()
-
-        # Table rows
-        pdf.set_font("HEB", "", 9)
-        for i, (zip_name, label, _orig) in enumerate(entries):
-            fill = i % 2 == 0
-            pdf.set_fill_color(250, 252, 255) if fill else pdf.set_fill_color(255, 255, 255)
+        pdf.set_font("HEB", "B", 11)
+        pdf.cell(180, 9, "רשימת המסמכים שצורפו", fill=True, align="R")
+        pdf.ln(12)
+        pdf.set_text_color(30, 30, 30)
+        if entries:
+            pdf.set_fill_color(240, 245, 255)
+            pdf.set_font("HEB", "B", 9)
             pdf.set_x(15)
-            pdf.cell(90, 7, zip_name, border=1, fill=fill, align="L")
-            pdf.cell(90, 7, label,    border=1, fill=fill, align="R")
+            pdf.cell(90, 8, "שם קובץ ב-ZIP", border=1, fill=True, align="C")
+            pdf.cell(90, 8, "סוג מסמך", border=1, fill=True, align="C")
             pdf.ln()
-    else:
-        pdf.set_font("HEB", "", 11)
+            pdf.set_font("HEB", "", 9)
+            for i, (zip_name, label, _orig) in enumerate(entries):
+                fill = i % 2 == 0
+                pdf.set_fill_color(250, 252, 255) if fill else pdf.set_fill_color(255, 255, 255)
+                pdf.set_x(15)
+                pdf.cell(90, 7, zip_name, border=1, fill=fill, align="L")
+                pdf.cell(90, 7, label, border=1, fill=fill, align="R")
+                pdf.ln()
+        else:
+            pdf.set_font("HEB", "", 11)
+            pdf.set_x(0)
+            pdf.cell(190, 10, "לא הועלו מסמכים.", align="C")
+            pdf.ln()
+        pdf.set_y(-25)
+        pdf.set_draw_color(180, 180, 180)
+        pdf.set_line_width(0.3)
+        pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+        pdf.ln(3)
+        pdf.set_font("HEB", "", 8)
+        pdf.set_text_color(120, 120, 120)
         pdf.set_x(0)
-        pdf.cell(190, 10, "לא הועלו מסמכים.", align="C")
-        pdf.ln()
-
-    # Footer
-    pdf.set_y(-25)
-    pdf.set_draw_color(180, 180, 180)
-    pdf.set_line_width(0.3)
-    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
-    pdf.ln(3)
-    pdf.set_font("HEB", "", 8)
-    pdf.set_text_color(120, 120, 120)
-    pdf.set_x(0)
-    pdf.cell(190, 5, "www.robomas.co.il  |  מסמך זה הופק אוטומטית על ידי מערכת רובומס", align="C")
-
-    return bytes(pdf.output())
+        pdf.cell(190, 5, "www.robomas.co.il  |  מסמך זה הופק אוטומטית על ידי מערכת רובומס", align="C")
+        return bytes(pdf.output())
+    except Exception:
+        return _build_summary_pdf_fallback(personal, year, entries)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

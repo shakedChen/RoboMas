@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}משיכות מקופות וקרנות — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="submit" form="income-form" class="nav-btn nav-btn--next">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="page-center">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">💰 שלב 7 · משיכות מקופות וקרנות (3 / 4)</div>
+    <h2>מהם מקורות ההכנסה שלך בשנת {{ year }}?</h2>
+    <p>האם משכתם כספים מקופות גמל, קרנות פנסיה, קרנות השתלמות או פיצויים?</p>
+  </div>
+
+  <form id="income-form" method="POST" action="{{ url_for('step_income_pension') }}">
+    {% set items = [
+      ('separation_grant',     '💼', 'פריסת מענק פרישה',
+       'פדיון / פריסת מענק פרישה שהשפיע על שנת המס'),
+      ('severance_taxable',    '💸', 'פיצויים חייבים במס',
+       'משיכת כספי פיצויים שאינם פטורים ממס'),
+      ('provident_withdrawal', '🏦', 'משיכת קופת גמל להשקעה',
+       'פדיון כספים מקופת גמל להשקעה'),
+      ('pension_illegal',      '⚠️', 'משיכת גמולי פנסיה שלא כדין',
+       'משיכה מוקדמת / שלא בהתאם לתקנות'),
+      ('training_fund',        '🎓', 'קרן השתלמות לא פטורה',
+       'משיכה מקרן השתלמות החייבת במס (גם ללא גרירה)'),
+      ('pension_annuity',      '🧓', 'קצבת פנסיה / נכות',
+       'קצבה חודשית מביטוח מנהלים, קרן פנסיה, ביטוח לאומי'),
+    ] %}
+    <div class="card-grid card-grid--3">
+      {% for val, icon, label, desc in items %}
+      <label class="income-card {% if val in selected %}income-card--active{% endif %}" for="ip_{{ val }}">
+        <input type="checkbox" id="ip_{{ val }}" name="items" value="{{ val }}"
+               {% if val in selected %}checked{% endif %} />
+        <div class="income-card-body">
+          <div class="income-icon">{{ icon }}</div>
+          <div class="income-label">{{ label }}</div>
+          {% if desc %}<div class="income-desc">{{ desc }}</div>{% endif %}
+        </div>
+        <span class="check-ring">✓</span>
+      </label>
+      {% endfor %}
+    </div>
+  </form>
+</div>
+{% endblock %}

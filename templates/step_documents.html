@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}הכנת מסמכים — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="button" class="nav-btn nav-btn--next" onclick="submitDocs()">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="narrow">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">📎 שלב 10</div>
+    <h2>מסמכים נדרשים לדו״ח</h2>
+    <p>
+      בהתאם לבחירותיכם, אלו המסמכים שצריך להעלות.
+      ניתן לגרור קבצים לכל אזור, או ללחוץ "בחר קבצים".
+      לאחר העלאה לחצו "המשך" — המערכת תארוז הכל ל-ZIP מוכן.
+    </p>
+  </div>
+
+  {% if docs_info %}
+
+  <!-- Progress -->
+  <div class="doc-progress-bar">
+    <span class="doc-progress-text">
+      הועלו <strong id="done-count">0</strong> מתוך <strong>{{ docs_info | length }}</strong> מסמכים
+    </span>
+    <div class="doc-progress-track">
+      <div class="doc-progress-fill" id="progress-fill"></div>
+    </div>
+  </div>
+
+  <!-- Document cards -->
+  {% for key, info in docs_info %}
+  <div class="doc-section" id="doc-{{ key }}">
+
+    <div class="doc-section-header">
+      <span class="doc-icon">{{ info.icon }}</span>
+      <div class="doc-info">
+        <strong>{{ info.label }}</strong>
+        <p>{{ info.desc }}</p>
+      </div>
+      <span class="doc-done-badge">✓ הועלה</span>
+      <span class="doc-code-tag">{{ info.code }}_{{ info.part }}</span>
+    </div>
+
+    <!--
+      The drop zone.
+      We track dragenter/dragleave with a counter to avoid flicker when
+      the cursor moves over child elements inside the zone.
+    -->
+    <div class="upload-zone" id="upload-{{ key }}"
+         ondragenter="onDragEnter(event, '{{ key }}')"
+         ondragleave="onDragLeave(event, '{{ key }}')"
+         ondragover="event.preventDefault()"
+         ondrop="onDrop(event, '{{ key }}')">
+
+      <div class="upload-placeholder" id="prompt-{{ key }}" style="pointer-events:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0
+                   0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+        <p>גרור קבצים לכאן</p>
+        <span>{{ info.accept.replace(',', ' · ') }}</span>
+      </div>
+
+      <div class="file-chips" id="file-list-{{ key }}"></div>
+
+      <label class="upload-file-btn">
+        📂 &nbsp; בחר {% if info.multiple %}קבצים{% else %}קובץ{% endif %}
+        <input type="file"
+               id="input-{{ key }}"
+               accept="{{ info.accept }}"
+               {% if info.multiple %}multiple{% endif %}
+               onchange="addFromInput(this, '{{ key }}')"
+               style="display:none" />
+      </label>
+    </div>
+
+  </div>
+  {% endfor %}
+
+  <div class="docs-cta">
+    <button type="button" class="btn btn--gold btn--lg" onclick="submitDocs()" id="submit-btn">
+      📦 &nbsp; יצירת קובץ ZIP והמשך
+    </button>
+    <p style="margin-top:12px;font-size:13px;color:var(--text-light)">
+      ניתן להמשיך גם ללא העלאת כל המסמכים — תוכלו להוריד ZIP עם מה שהועלה
+    </p>
+  </div>
+
+  <form id="docs-form" method="POST" action="{{ url_for('step_documents') }}"
+        enctype="multipart/form-data" style="display:none">
+    <button type="submit"></button>
+  </form>
+
+  {% else %}
+  <div class="empty-docs">
+    <p>🎉 לא זוהו מסמכים נדרשים בהתאם לבחירותיכם.</p>
+    <p style="margin-top:8px;font-size:14px;color:var(--text-light)">לחצו "המשך" כדי לעבור לסיום.</p>
+  </div>
+  <form id="docs-form" method="POST" action="{{ url_for('step_documents') }}">
+    <input type="hidden" name="_no_docs" value="1" />
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const allFiles   = {};           // doc_key → File[]
+const dragDepth  = {};           // drag-enter counter per zone (prevents child flicker)
+const totalDocs  = {{ docs_info | length if docs_info else 0 }};
+
+/* ── Drag & Drop ──────────────────────────────────────────────────────── */
+function onDragEnter(e, key) {
+  e.preventDefault();
+  dragDepth[key] = (dragDepth[key] || 0) + 1;
+  document.getElementById('upload-' + key).classList.add('upload-zone--over');
+}
+function onDragLeave(e, key) {
+  dragDepth[key] = (dragDepth[key] || 1) - 1;
+  if (dragDepth[key] <= 0) {
+    dragDepth[key] = 0;
+    document.getElementById('upload-' + key).classList.remove('upload-zone--over');
+  }
+}
+function onDrop(e, key) {
+  e.preventDefault();
+  dragDepth[key] = 0;
+  document.getElementById('upload-' + key).classList.remove('upload-zone--over');
+  const files = Array.from(e.dataTransfer.files);
+  if (!files.length) return;
+  if (!allFiles[key]) allFiles[key] = [];
+  allFiles[key].push(...files);
+  renderList(key);
+  updateProgress();
+}
+
+/* ── File picker ──────────────────────────────────────────────────────── */
+function addFromInput(input, key) {
+  if (!allFiles[key]) allFiles[key] = [];
+  allFiles[key].push(...Array.from(input.files));
+  renderList(key);
+  updateProgress();
+  input.value = '';  // allow re-selecting same file
+}
+
+/* ── Remove file ──────────────────────────────────────────────────────── */
+function removeFile(key, idx) {
+  allFiles[key].splice(idx, 1);
+  renderList(key);
+  updateProgress();
+}
+
+/* ── Render file chips ────────────────────────────────────────────────── */
+function renderList(key) {
+  const files   = allFiles[key] || [];
+  const list    = document.getElementById('file-list-' + key);
+  const prompt  = document.getElementById('prompt-' + key);
+  const section = document.getElementById('doc-' + key);
+
+  list.innerHTML = files.map((f, i) => `
+    <div class="file-chip">
+      <span class="fc-icon">${fileIcon(f.name)}</span>
+      <span class="fc-name">${esc(f.name)}</span>
+      <span class="fc-size">${fmtSize(f.size)}</span>
+      <button type="button" class="fc-rm" onclick="removeFile('${key}',${i})" title="הסר">✕</button>
+    </div>`).join('');
+
+  const has = files.length > 0;
+  prompt.style.display = has ? 'none' : '';
+  section.classList.toggle('doc-section--done', has);
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────────── */
+function updateProgress() {
+  const done = Object.values(allFiles).filter(a => a && a.length > 0).length;
+  const el   = document.getElementById('done-count');
+  if (el) el.textContent = done;
+  const fill = document.getElementById('progress-fill');
+  if (fill && totalDocs > 0)
+    fill.style.width = Math.round(done / totalDocs * 100) + '%';
+}
+
+/* ── Submit via fetch ─────────────────────────────────────────────────── */
+function submitDocs() {
+  const btn = document.getElementById('submit-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ &nbsp; מכין קובץ ZIP...'; }
+
+  const fd = new FormData();
+  fd.append('_submit', '1');
+  Object.entries(allFiles).forEach(([key, files]) =>
+    files.forEach(f => fd.append('doc_' + key, f, f.name))
+  );
+
+  fetch("{{ url_for('step_documents') }}", { method: 'POST', body: fd })
+    .then(() => { window.location.href = "{{ url_for('step_complete') }}"; })
+    .catch(() => { window.location.href = "{{ url_for('step_complete') }}"; });
+}
+
+/* ── Helpers ──────────────────────────────────────────────────────────── */
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  return ext === 'pdf' ? '📄' : ['jpg','jpeg','png'].includes(ext) ? '🖼️' : ext === 'csv' ? '📊' : '📎';
+}
+function fmtSize(b) {
+  return b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : (b/1048576).toFixed(1) + ' MB';
+}
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

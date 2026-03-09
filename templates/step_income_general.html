@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}הכנסות כלליות — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="submit" form="income-form" class="nav-btn nav-btn--next">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="page-center">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">💼 שלב 5 · הכנסות כלליות (1 / 4)</div>
+    <h2>מהם מקורות ההכנסה שלך בשנת {{ year }}?</h2>
+    <p>בחרו את כל מקורות ההכנסה הרלוונטיים. ניתן לבחור מספר אפשרויות.</p>
+  </div>
+
+  <form id="income-form" method="POST" action="{{ url_for('step_income_general') }}">
+    {% set items = [
+      ('salary',        '💼', 'משכורת',
+       'שכר עבודה, פנסיה, ריכיב פירותי מתגמול הוני, אובדן כושר עבודה'),
+      ('equity',        '📈', 'תגמול הוני ממקום עבודה',
+       'אופציות ESOP, RSU / ESPP / RSA, מניות, דיבידנדים מתגמול הוני'),
+      ('self_employed', '🧑‍💼', 'עצמאי / עוסק',
+       'גם אם לא היו הכנסות מעסק בשנת המס'),
+      ('corona_grant',  '🦠', 'מענקי קורונה',
+       'מענק לעצמאים, מענק שכירים — לא כולל מענק אזרחי כללי'),
+      ('bituach_leumi', '🛡️', 'ביטוח לאומי',
+       'דמי אבטלה, דמי לידה, קצבת נכות, קצבת ילדים ועוד'),
+    ] %}
+    <div class="card-grid card-grid--5">
+      {% for val, icon, label, desc in items %}
+      <label class="income-card {% if val in selected %}income-card--active{% endif %}" for="ig_{{ val }}">
+        <input type="checkbox" id="ig_{{ val }}" name="items" value="{{ val }}"
+               {% if val in selected %}checked{% endif %} />
+        <div class="income-card-body">
+          <div class="income-icon">{{ icon }}</div>
+          <div class="income-label">{{ label }}</div>
+          <div class="income-desc">{{ desc }}</div>
+        </div>
+        <span class="check-ring">✓</span>
+      </label>
+      {% endfor %}
+    </div>
+  </form>
+</div>
+{% endblock %}

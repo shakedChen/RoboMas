@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}השקעות ושוק ההון — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="submit" form="income-form" class="nav-btn nav-btn--next">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="page-center">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">📊 שלב 6 · השקעות ושוק ההון (2 / 4)</div>
+    <h2>מהם מקורות ההכנסה שלך בשנת {{ year }}?</h2>
+    <p>סמנו את כל סוגי ההשקעות שהיו לכם בשנת המס.</p>
+  </div>
+
+  <form id="income-form" method="POST" action="{{ url_for('step_income_capital') }}">
+    {% set items = [
+      ('capital_israel',   '📊', 'שוק ההון הישראלי',
+       'מניות, אג"ח, קרנות נאמנות, ETF, פקדונות ריבית'),
+      ('capital_foreign',  '🌐', 'ברוקר זר',
+       'Interactive Brokers, TD Ameritrade וכד׳ — מסחר בניירות ערך זרים'),
+      ('crypto',           '₿',  'קריפטו',
+       'ביטקוין, אתריום, NFT ומטבעות דיגיטליים אחרים'),
+      ('social_loans',     '🤝', 'הלוואות חברתיות',
+       'כלנה, BTB, קרדיט ומר'),
+      ('rent',             '🏠', 'שכירות נדל"ן',
+       'הכנסות משכירות נדל"ן בישראל או בחו"ל'),
+      ('debt_investments', '📝', 'עסקאות חוב',
+       'הלוואות P2P, מסלול חוב, מימון חברות'),
+      ('real_estate_fund', '🏗️', 'קרן נדל"ן (REIT)',
+       'קרנות REIT ומכשירים דומים'),
+      ('private_company',  '🏢', 'החזקה בחברה פרטית',
+       'דיבידנד מחברה בבעלותכם או שותפות'),
+      ('real_estate_sale', '🏡', 'מכירת נדל"ן ללא פטור',
+       'דירות מגורים, משרד, מסחרי ועוד'),
+      ('family_company',   '👨‍👩‍👧', 'חברה משפחתית',
+       'חברה שנבחרה כחברה משפחתית לצורכי מס'),
+    ] %}
+    <div class="card-grid card-grid--5">
+      {% for val, icon, label, desc in items %}
+      <label class="income-card {% if val in selected %}income-card--active{% endif %}" for="ic_{{ val }}">
+        <input type="checkbox" id="ic_{{ val }}" name="items" value="{{ val }}"
+               {% if val in selected %}checked{% endif %} />
+        <div class="income-card-body">
+          <div class="income-icon">{{ icon }}</div>
+          <div class="income-label">{{ label }}</div>
+          {% if desc %}<div class="income-desc">{{ desc }}</div>{% endif %}
+        </div>
+        <span class="check-ring">✓</span>
+      </label>
+      {% endfor %}
+    </div>
+  </form>
+</div>
+{% endblock %}

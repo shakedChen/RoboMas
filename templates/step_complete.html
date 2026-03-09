@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}הקובץ מוכן — רובומס{% endblock %}
+
+{% block content %}
+<div class="complete-wrap">
+
+  <!-- Banner -->
+  <div class="complete-banner">
+    <div class="complete-robot">🤖</div>
+    <h2>הקובץ שלך מוכן!</h2>
+    <p>
+      {% if personal.first_name %}{{ personal.first_name }}, ה{% else %}ה{% endif %}מסמכים
+      עובדו ושונו לשמות המתאימים לטעינה במערכת מס הכנסה.
+    </p>
+    {% if year or personal.id_number %}
+    <div class="complete-details">
+      {% if year %}<div class="complete-detail"><span>שנת מס</span><strong>{{ year }}</strong></div>{% endif %}
+      {% if personal.id_number %}<div class="complete-detail"><span>תעודת זהות</span><strong>{{ personal.id_number }}</strong></div>{% endif %}
+    </div>
+    {% endif %}
+    <a href="{{ url_for('download_zip') }}" class="btn-download">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M16 12l-4 4m0 0l-4-4m4 4V4"/>
+      </svg>
+      הורדת קובץ ה-ZIP
+    </a>
+    <p class="complete-filename">📦 &nbsp;צרופות לטעינה מס הכנסה.zip</p>
+  </div>
+
+  <!-- Instructions -->
+  <div class="complete-instructions">
+    <h3>📋 מה עושים עם הקובץ?</h3>
+    <ol>
+      <li>היכנסו ל<a href="https://www.misim.gov.il/" target="_blank">אתר מס הכנסה</a> והתחברו למערכת.</li>
+      <li>עברו ל"הגשת דוח שנתי" ← "טעינת צרופות".</li>
+      <li>העלו את קובץ ה-ZIP — <strong>כל הקבצים בפנים כבר נקראים בשמות הנכונים</strong>.</li>
+      <li>וודאו שכל הקבצים הועלו בהצלחה וסיימו את ההגשה.</li>
+    </ol>
+  </div>
+
+  <!-- Actions -->
+  <div class="complete-actions">
+    <a href="{{ url_for('step_goal') }}" class="btn btn--outline">
+      📋 &nbsp;דוח לשנה אחרת
+    </a>
+    <a href="{{ url_for('reset') }}" class="btn btn--ghost">
+      🔄 &nbsp;התחל מחדש
+    </a>
+  </div>
+
+</div>
+{% endblock %}

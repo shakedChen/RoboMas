@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}פרטים אישיים — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="submit" form="personal-form" class="nav-btn nav-btn--next">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="narrow">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">👤 שלב 2</div>
+    <h2>פרטים מזהים לשנת {{ year }}</h2>
+    <p>הזינו את הפרטים כפי שמופיעים בתעודת הזהות שלכם.</p>
+  </div>
+
+  <form id="personal-form" method="POST" action="{{ url_for('step_personal') }}"
+        class="form-card" novalidate>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="first_name">שם פרטי <span class="req">*</span></label>
+        <input type="text" id="first_name" name="first_name"
+               value="{{ data.first_name or '' }}" required placeholder="ישראל" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="last_name">שם משפחה <span class="req">*</span></label>
+        <input type="text" id="last_name" name="last_name"
+               value="{{ data.last_name or '' }}" required placeholder="ישראלי" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="dob">תאריך לידה <span class="req">*</span></label>
+        <div class="input-icon-wrap">
+          <svg class="input-icon" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="4" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M2 8h16M6 2v4M14 2v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <input type="date" id="dob" name="dob"
+                 value="{{ data.dob or '' }}" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">מין <span class="req">*</span></label>
+        <div class="radio-group" style="padding-top:6px">
+          <label class="radio-pill {% if data.gender == 'female' %}radio-pill--active{% endif %}">
+            <input type="radio" name="gender" value="female"
+                   {% if data.gender == 'female' %}checked{% endif %} required />
+            נקבה
+          </label>
+          <label class="radio-pill {% if data.gender == 'male' %}radio-pill--active{% endif %}">
+            <input type="radio" name="gender" value="male"
+                   {% if data.gender == 'male' %}checked{% endif %} />
+            זכר
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="id_number">תעודת זהות <span class="req">*</span></label>
+        <input type="text" id="id_number" name="id_number"
+               value="{{ data.id_number or '' }}" required
+               maxlength="9" placeholder="123456789" pattern="[0-9]{9}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="phone">טלפון נייד</label>
+        <input type="tel" id="phone" name="phone"
+               value="{{ data.phone or '' }}" placeholder="050-0000000" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group form-group--full">
+        <label class="form-label" for="email">כתובת אימייל</label>
+        <input type="email" id="email" name="email"
+               value="{{ data.email or '' }}" placeholder="example@email.com" />
+      </div>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.radio-pill input').forEach(input => {
+  input.addEventListener('change', () => {
+    input.closest('.radio-group').querySelectorAll('.radio-pill')
+      .forEach(p => p.classList.remove('radio-pill--active'));
+    input.closest('.radio-pill').classList.add('radio-pill--active');
+  });
+});
+</script>
+{% endblock %}

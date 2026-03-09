@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}רובומס — דוח שנתי מס הכנסה{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────────── -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="{{ url_for('step_goal') }}" class="logo">
+        <span class="logo-robot">🤖</span>
+        <span class="logo-text">רובו<strong>מס</strong></span>
+      </a>
+
+      {% if current_step >= 2 and current_step <= 11 %}
+      <div class="step-progress">
+        <div class="step-progress-track">
+          {% for i in range(2, 12) %}
+          <div class="step-dot
+            {% if i < current_step %}step-dot--done
+            {% elif i == current_step %}step-dot--active
+            {% endif %}">
+            <span class="step-dot-num">
+              {% if i < current_step %}✓{% else %}{{ i - 1 }}{% endif %}
+            </span>
+          </div>
+          {% if i < 11 %}<div class="step-line {% if i < current_step %}step-line--done{% endif %}"></div>{% endif %}
+          {% endfor %}
+        </div>
+        <div class="step-label-row">שלב {{ current_step - 1 }} מתוך 10 — {{ step_label }}</div>
+      </div>
+      {% endif %}
+
+      <div class="header-actions">
+        {% if personal_name %}
+        <span class="header-user">שלום, {{ personal_name }}</span>
+        {% endif %}
+        <a href="{{ url_for('reset') }}" class="btn-reset">התחל מחדש</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Step nav bar ─────────────────────────────────────────────────── -->
+  {% if current_step >= 2 and current_step <= 11 %}
+  <div class="step-nav-bar">
+    <div class="step-nav-inner">
+      {% block nav_prev %}
+      <a href="javascript:history.back()" class="nav-btn nav-btn--prev">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M13 4l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        חזרה
+      </a>
+      {% endblock %}
+      {% if session_year %}<span class="nav-year-pill">שנת מס {{ session_year }}</span>{% endif %}
+      {% block nav_next %}{% endblock %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Page ─────────────────────────────────────────────────────────── -->
+  <main class="main-wrap">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Footer ──────────────────────────────────────────────────────── -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>🤖 רובומס © {{ 2025 }}</span>
+      <span>·</span>
+      <span>כל הזכויות שמורות</span>
+      <span>·</span>
+      <a href="#">תנאי שימוש</a>
+      <span>·</span>
+      <a href="#">פרטיות</a>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

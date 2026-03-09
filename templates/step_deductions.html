@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}זיכויים וניכויים — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="submit" form="deductions-form" class="nav-btn nav-btn--next">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="page-center">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">⭐ שלב 9 · זיכויים וניכויים</div>
+    <h2>בחרו במצבים הרלוונטיים עבורכם</h2>
+    <p>כל אחד מהמצבים הבאים עשוי לזכות אתכם בהחזר מס נוסף.</p>
+  </div>
+
+  {% if family and family.has_children == 'yes' %}
+  <div class="conditional-box conditional-box--success" style="display:flex; margin-bottom:20px">
+    <span class="cb-icon">👶</span>
+    <div>
+      <strong>זיכוי בגין ילדים — נבחר אוטומטית</strong>
+      <p>
+        בהתאם לתשובתכם שיש לכם ילדים, סומן עבורכם הזיכוי הרלוונטי.
+        {% if family.children_count %}ל-{{ family.children_count }} ילדים ייתכן זיכוי של
+        עד {{ family.children_count }} נקודות זיכוי.{% endif %}
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
+  <form id="deductions-form" method="POST" action="{{ url_for('step_deductions') }}">
+    {% set items = [
+      ('children',       '👶', 'זיכוי בשל ילדים',
+       'ילדים שנולדו בין 2003 לשנת המס — זיכוי עד נקודה לכל ילד'),
+      ('single_parent',  '👨‍👧', 'הורה יחידני',
+       'גידול ילד/ים ללא בן/בת זוג — זיכוי נוסף'),
+      ('pension_fund',   '💰', 'הפקדה לקרן השתלמות / פנסיה כעצמאי',
+       ''),
+      ('work_loss',      '🛡️', 'ביטוח חיים / אובדן כושר עבודה',
+       'תשלום פרמיה כעצמאי/ת'),
+      ('donations',      '❤️', 'תרומות',
+       'תרומות לעמותות מוכרות לפי סעיף 46'),
+      ('kibbutz',        '🌾', 'חבר/ת קיבוץ',
+       ''),
+      ('aliya',          '✈️', 'עולה חדש/ה או תושב/ת חוזר/ת',
+       'הטבות מס לעולים בשנות ההטבה'),
+      ('abroad_payments','🌍', 'תשלומים לביטוח לאומי כעצמאי/ת',
+       ''),
+      ('military',       '🎖️', 'חייל/ת משוחרר/ת או שירות לאומי',
+       'שוחרר/ה בין 2018 לשנת המס — זיכוי חד-פעמי'),
+      ('disability',     '♿', 'נכה / עיוור',
+       'לפי פסיקת רשות מוסמכת'),
+      ('study',          '📚', 'סיום לימודים אקדמיים / לימודי מקצוע',
+       'בארבע השנים שלפני שנת המס'),
+      ('prev_report',    '📂', 'הגשת דוח שנתי בשנה קודמת',
+       'נדרש לצרף אישור הגשה קודם'),
+    ] %}
+    <div class="card-grid card-grid--4">
+      {% for val, icon, label, desc in items %}
+      <label class="income-card {% if val in selected %}income-card--active{% endif %}" for="d_{{ val }}">
+        <input type="checkbox" id="d_{{ val }}" name="items" value="{{ val }}"
+               {% if val in selected %}checked{% endif %} />
+        <div class="income-card-body">
+          <div class="income-icon">{{ icon }}</div>
+          <div class="income-label">{{ label }}</div>
+          {% if desc %}<div class="income-desc">{{ desc }}</div>{% endif %}
+        </div>
+        <span class="check-ring">✓</span>
+      </label>
+      {% endfor %}
+    </div>
+  </form>
+</div>
+{% endblock %}

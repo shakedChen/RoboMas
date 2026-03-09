@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}הכנסות נוספות — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="submit" form="income-form" class="nav-btn nav-btn--next">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="page-center">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">📦 שלב 8 · הכנסות נוספות (4 / 4)</div>
+    <h2>מהם מקורות ההכנסה שלך בשנת {{ year }}?</h2>
+    <p>האם היו לכם הכנסות נוספות שלא הוזכרו עד כה?</p>
+  </div>
+
+  <form id="income-form" method="POST" action="{{ url_for('step_income_other') }}">
+    {% set items = [
+      ('directors',        '👔', 'שכר דירקטורים',
+       'שכר עבור שירות כחבר דירקטוריון בחברה'),
+      ('lottery',          '🎰', 'הגרלות ופרסים',
+       'פרסים, הגרלות, תחרויות החייבים במס'),
+      ('foreign_income',   '✈️', 'הכנסות מחו"ל',
+       'משכורת, פנסיה, שכירות או הכנסות אחרות ממקורות זרים'),
+      ('dividends_private','💰', 'דיבידנד מחברה פרטית',
+       'דיבידנד שחולק מחברה שבשליטתכם'),
+      ('electricity_sale', '⚡', 'מכירת חשמל (סולרי)',
+       'הכנסות ממכירת חשמל ממערכת פוטו-וולטאית'),
+      ('other_income',     '📦', 'הכנסות אחרות',
+       'כל הכנסה שלא מופיעה בקטגוריות הקודמות'),
+    ] %}
+    <div class="card-grid card-grid--3">
+      {% for val, icon, label, desc in items %}
+      <label class="income-card {% if val in selected %}income-card--active{% endif %}" for="io_{{ val }}">
+        <input type="checkbox" id="io_{{ val }}" name="items" value="{{ val }}"
+               {% if val in selected %}checked{% endif %} />
+        <div class="income-card-body">
+          <div class="income-icon">{{ icon }}</div>
+          <div class="income-label">{{ label }}</div>
+          {% if desc %}<div class="income-desc">{{ desc }}</div>{% endif %}
+        </div>
+        <span class="check-ring">✓</span>
+      </label>
+      {% endfor %}
+    </div>
+  </form>
+</div>
+{% endblock %}

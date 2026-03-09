@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}בחירת שנת מס — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="submit" form="year-form" class="nav-btn nav-btn--next">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="narrow">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">📅 שלב 1</div>
+    <h2>על איזו שנת מס נגיש את הדוח?</h2>
+    <p>
+      ניתן להגיש דוח עבור מספר שנים. כדאי להתחיל מהשנה הקדומה ביותר
+      כדי שנתוני ההעברה יזרמו בצורה נכונה.
+    </p>
+  </div>
+
+  <form id="year-form" method="POST" action="{{ url_for('step_year') }}">
+    <input type="hidden" name="year" id="year-input" value="{{ selected }}" />
+    <div class="year-layout">
+      <div class="year-panel">
+        <div class="year-panel-head">בחירת שנה</div>
+        <ul class="year-list" id="year-list">
+          {% for y in years %}
+          <li class="year-item {% if y == selected %}year-item--active{% endif %}"
+              data-year="{{ y }}" onclick="selectYear({{ y }})">
+            {{ y }}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="year-preview">
+        <div class="year-preview-label">שנת מס נבחרת</div>
+        <div class="year-preview-big" id="year-preview-val">{{ selected }}</div>
+        <div class="year-preview-sub">
+          ניתן לשנות את הבחירה לאחר מכן דרך תפריט "בחירת שנה".
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function selectYear(y) {
+  document.querySelectorAll('.year-item').forEach(el => el.classList.remove('year-item--active'));
+  document.querySelector('[data-year="' + y + '"]').classList.add('year-item--active');
+  document.getElementById('year-input').value = y;
+  document.getElementById('year-preview-val').textContent = y;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const a = document.querySelector('.year-item--active');
+  if (a) a.scrollIntoView({ block: 'center', behavior: 'smooth' });
+});
+</script>
+{% endblock %}

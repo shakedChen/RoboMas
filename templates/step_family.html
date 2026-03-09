@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}מצב משפחתי — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="submit" form="family-form" class="nav-btn nav-btn--next">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="narrow">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">👨‍👩‍👧 שלב 3</div>
+    <h2>מצב משפחתי לשנת {{ year }}</h2>
+    <p>הפרטים משפיעים ישירות על חישוב נקודות הזיכוי שמגיעות לכם.</p>
+  </div>
+
+  <form id="family-form" method="POST" action="{{ url_for('step_family') }}"
+        class="qna-form" novalidate>
+
+    <!-- ── שאלה 1: מצב משפחתי ───────────────────────────────────────── -->
+    <div class="qna-card">
+      <div class="qna-card-header">
+        <div class="qna-bullet">1</div>
+        <div class="qna-question-text">
+          מה היה מצבך המשפחתי לפי תעודת הזהות בסוף שנת {{ year }}?
+        </div>
+      </div>
+      <div class="qna-card-body">
+        <div class="radio-group">
+          {% for val, label in [('single','רווק/ה'), ('married','נשוי/אה'), ('divorced','גרוש/ה'), ('separated','פרוד/ה'), ('widowed','אלמן/ה')] %}
+          <label class="radio-pill {% if data.status == val %}radio-pill--active{% endif %}">
+            <input type="radio" name="status" value="{{ val }}"
+                   {% if data.status == val %}checked{% endif %} required />
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── שאלה 2: תושב זרה ─────────────────────────────────────────── -->
+    <div class="qna-card">
+      <div class="qna-card-header">
+        <div class="qna-bullet">2</div>
+        <div>
+          <div class="qna-question-text">האם אתם תושב/ת זר/ה?</div>
+          <span class="qna-question-sub">תושב זר הוא מי שמרכז חייו מחוץ לישראל בשנת המס.</span>
+        </div>
+      </div>
+      <div class="qna-card-body">
+        <div class="radio-group">
+          <label class="radio-pill {% if data.foreign_resident == 'yes' %}radio-pill--active{% endif %}">
+            <input type="radio" name="foreign_resident" value="yes"
+                   {% if data.foreign_resident == 'yes' %}checked{% endif %}
+                   onchange="toggleForeignNotice(this.value)" />
+            כן
+          </label>
+          <label class="radio-pill {% if data.foreign_resident != 'yes' %}radio-pill--active{% endif %}">
+            <input type="radio" name="foreign_resident" value="no"
+                   {% if data.foreign_resident != 'yes' %}checked{% endif %}
+                   onchange="toggleForeignNotice(this.value)" />
+            לא
+          </label>
+        </div>
+
+        <!-- revealed when YES -->
+        <div id="foreign-notice"
+             class="conditional-box conditional-box--warn"
+             style="display: {% if data.foreign_resident == 'yes' %}flex{% else %}none{% endif %}">
+          <span class="cb-icon">⚠️</span>
+          <div>
+            <strong>שימו לב — תושב זר</strong>
+            <p>
+              תושב זר חייב להצהיר על כלל הכנסותיו בישראל בלבד. יתכן שתהיה חובת הגשה
+              מיוחדת ויידרשו מסמכים נוספים הנוגעים להכנסות בחו"ל.
+              מומלץ להתייעץ עם רואה חשבון לגבי חובות הדיווח שלכם.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── שאלה 3: ילדים ────────────────────────────────────────────── -->
+    <div class="qna-card">
+      <div class="qna-card-header">
+        <div class="qna-bullet">3</div>
+        <div class="qna-question-text">
+          האם יש לכם ילדים שנולדו בין השנים 2003–{{ year }}?
+        </div>
+      </div>
+      <div class="qna-card-body">
+        <div class="radio-group">
+          <label class="radio-pill {% if data.has_children == 'yes' %}radio-pill--active{% endif %}">
+            <input type="radio" name="has_children" value="yes"
+                   {% if data.has_children == 'yes' %}checked{% endif %}
+                   onchange="toggleChildren(this.value)" />
+            כן
+          </label>
+          <label class="radio-pill {% if data.has_children != 'yes' %}radio-pill--active{% endif %}">
+            <input type="radio" name="has_children" value="no"
+                   {% if data.has_children != 'yes' %}checked{% endif %}
+                   onchange="toggleChildren(this.value)" />
+            לא
+          </label>
+        </div>
+
+        <!-- revealed when YES -->
+        <div id="children-details"
+             class="conditional-box conditional-box--info"
+             style="display: {% if data.has_children == 'yes' %}flex{% else %}none{% endif %}">
+          <span class="cb-icon">👶</span>
+          <div style="flex:1">
+            <strong>כמה ילדים יש לכם?</strong>
+            <p style="margin-bottom:12px">
+              נקודות הזיכוי מחושבות לפי מספר הילדים וגילם. הזינו את מספר הילדים
+              שנולדו בתחום השנים הנ"ל.
+            </p>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+              <label style="font-weight:700;font-size:14px">מספר ילדים:</label>
+              <input type="number" name="children_count" id="children_count"
+                     min="1" max="20"
+                     value="{{ data.children_count or 1 }}"
+                     style="width:80px; padding:8px 12px; border:2px solid var(--border);
+                            border-radius:8px; font-size:16px; font-weight:700;
+                            text-align:center; font-family:inherit" />
+            </div>
+          </div>
+        </div>
+
+        <!-- always-visible warning -->
+        <div class="notice-warning">
+          <svg viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          <span>
+            ילדים שלא הוספתם עלולים לגרום לחישוב מס שגוי ולפספוס זיכויים שמגיעים לכם.
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForeignNotice(val) {
+  document.getElementById('foreign-notice').style.display = val === 'yes' ? 'flex' : 'none';
+}
+function toggleChildren(val) {
+  const box = document.getElementById('children-details');
+  box.style.display = val === 'yes' ? 'flex' : 'none';
+  document.getElementById('children_count').required = (val === 'yes');
+}
+
+// Init radio pill highlights
+document.querySelectorAll('.radio-group').forEach(group => {
+  group.querySelectorAll('.radio-pill input[type="radio"]').forEach(input => {
+    if (input.checked) input.closest('.radio-pill').classList.add('radio-pill--active');
+    input.addEventListener('change', () => {
+      group.querySelectorAll('.radio-pill').forEach(p => p.classList.remove('radio-pill--active'));
+      input.closest('.radio-pill').classList.add('radio-pill--active');
+    });
+  });
+});
+</script>
+{% endblock %}

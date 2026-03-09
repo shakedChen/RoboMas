@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}רובומס — דוח שנתי מס הכנסה{% endblock %}
+
+{% block content %}
+<div class="goal-hero">
+  <div class="goal-hero-badge">
+    🤖 &nbsp; פשוט · מדויק · חינמי
+  </div>
+  <h1>הגישו את הדוח השנתי<br>בקלות ובמהירות</h1>
+  <p>
+    רובומס מלווה אתכם שלב אחר שלב, שואל בדיוק את מה שצריך,
+    ומכין את כל המסמכים לטעינה במערכת מס הכנסה.
+  </p>
+</div>
+
+<form method="POST" action="{{ url_for('step_goal') }}" id="goal-form">
+  <div class="goal-cards">
+
+    <label class="goal-card" for="g_annual">
+      <input type="radio" id="g_annual" name="goal" value="annual" required />
+      <div class="goal-card-body">
+        <div class="goal-card-icon goal-card-icon--blue">📋</div>
+        <h3>הפקת דו״ח שנתי<br>לחייבים בהגשה</h3>
+        <p>כולל החזר מס. מתאים לשכירים עם מספר מקורות הכנסה, עצמאים, ומשקיעים.</p>
+        <span class="goal-card-btn">התחל &larr;</span>
+      </div>
+    </label>
+
+    <label class="goal-card" for="g_refund">
+      <input type="radio" id="g_refund" name="goal" value="refund" required />
+      <div class="goal-card-body">
+        <div class="goal-card-icon goal-card-icon--gold">💰</div>
+        <h3>בקשה להחזר מס<br>בלבד</h3>
+        <p>מתאים למי שלא חייב בהגשה אך צפוי לקבל החזר מס — שכירים, עובדי חל"ת ועוד.</p>
+        <span class="goal-card-btn">התחל &larr;</span>
+      </div>
+    </label>
+
+  </div>
+  <button type="submit" id="goal-submit-btn" style="display:none"></button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.goal-card').forEach(card => {
+  card.addEventListener('click', () => {
+    setTimeout(() => document.getElementById('goal-submit-btn').click(), 80);
+  });
+});
+</script>
+{% endblock %}

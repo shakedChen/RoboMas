@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}תיק מס הכנסה — רובומס{% endblock %}
+
+{% block nav_next %}
+<button type="submit" form="taxfile-form" class="nav-btn nav-btn--next">
+  המשך
+  <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="narrow">
+  <div class="step-hero">
+    <div class="step-hero-eyebrow">📁 שלב 4</div>
+    <h2>פרטי התיק במס הכנסה</h2>
+  </div>
+
+  <div class="info-box">
+    כדי להגיש דו״ח שנתי דיגיטלי נדרש תיק פתוח במס הכנסה לשנת המס הרלוונטית.
+    סוג התיק נקבע לפי אופי ההכנסות שלכם.
+  </div>
+
+  <form id="taxfile-form" method="POST" action="{{ url_for('step_taxfile') }}"
+        class="qna-form" novalidate>
+
+    <!-- ── שאלה 1: יש תיק? ──────────────────────────────────────────── -->
+    <div class="qna-card">
+      <div class="qna-card-header">
+        <div class="qna-bullet">1</div>
+        <div class="qna-question-text">
+          האם יש לכם תיק פתוח במס הכנסה לשנת {{ year }}?
+        </div>
+      </div>
+      <div class="qna-card-body">
+        <div class="radio-group">
+          {% for val, label in [('yes','כן'), ('no','לא'), ('unknown','לא יודע/ת')] %}
+          <label class="radio-pill {% if data.has_file == val %}radio-pill--active{% endif %}">
+            <input type="radio" name="has_file" value="{{ val }}"
+                   {% if data.has_file == val %}checked{% endif %}
+                   onchange="onHasFileChange(this.value)" required />
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+
+        <!-- YES → file number is mandatory -->
+        <div id="has-file-yes-hint"
+             class="conditional-box conditional-box--success"
+             style="display: {% if data.has_file == 'yes' %}flex{% else %}none{% endif %}">
+          <span class="cb-icon">✅</span>
+          <div>
+            <strong>מצוין!</strong>
+            <p>הזינו את מספר התיק שלכם למטה.</p>
+          </div>
+        </div>
+
+        <!-- NO or Unknown → guidance to open a file -->
+        <div id="has-file-no-hint"
+             class="conditional-box conditional-box--warn"
+             style="display: {% if data.has_file in ('no', 'unknown') or not data.has_file %}flex{% else %}none{% endif %}">
+          <span class="cb-icon">📋</span>
+          <div>
+            <strong>צריך לפתוח תיק?</strong>
+            <p>
+              לפתיחת תיק דיגיטלי חינמית ישירות מול מס הכנסה,
+              <a href="https://www.misim.gov.il/gmspticha/frmTMHazmanat.aspx"
+                 target="_blank" class="link-blue">לחצו כאן לאתר מס הכנסה ↗</a>.
+              לאחר פתיחת התיק חיזרו לכאן והזינו את המספר.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── שאלה 2: לפתוח עכשיו? ────────────────────────────────────── -->
+    <div class="qna-card">
+      <div class="qna-card-header">
+        <div class="qna-bullet">2</div>
+        <div class="qna-question-text">
+          האם תרצו לפתוח תיק כעת, או להמשיך ללא פתיחה?
+        </div>
+      </div>
+      <div class="qna-card-body">
+        <div class="radio-group">
+          <label class="radio-pill {% if data.open_now == 'yes' %}radio-pill--active{% endif %}">
+            <input type="radio" name="open_now" value="yes"
+                   {% if data.open_now == 'yes' %}checked{% endif %}
+                   onchange="onOpenNowChange(this.value)" />
+            כן, אפתח עכשיו
+          </label>
+          <label class="radio-pill {% if data.open_now != 'yes' %}radio-pill--active{% endif %}">
+            <input type="radio" name="open_now" value="no"
+                   {% if data.open_now != 'yes' %}checked{% endif %}
+                   onchange="onOpenNowChange(this.value)" />
+            להמשיך ללא פתיחה
+          </label>
+        </div>
+
+        <!-- YES → send them to open the file now -->
+        <div id="open-now-yes"
+             class="conditional-box conditional-box--blue"
+             style="display: {% if data.open_now == 'yes' %}flex{% else %}none{% endif %}">
+          <span class="cb-icon">🚀</span>
+          <div>
+            <strong>פתיחת תיק דיגיטלית — מהירה וחינמית</strong>
+            <p style="margin-bottom:10px">
+              לחצו על הכפתור להגשת הבקשה לפתיחת תיק באתר רשות המסים.
+              לאחר שתקבלו אישור, חיזרו לכאן והזינו את מספר התיק.
+            </p>
+            <a href="https://www.misim.gov.il/gmspticha/frmTMHazmanat.aspx"
+               target="_blank"
+               class="btn btn--primary btn--sm"
+               style="display:inline-flex; gap:6px">
+              🔗 &nbsp;פתיחת תיק במס הכנסה
+            </a>
+          </div>
+        </div>
+
+        <!-- NO → reassurance message -->
+        <div id="open-now-no"
+             class="conditional-box conditional-box--info"
+             style="display: {% if data.open_now != 'yes' %}flex{% else %}none{% endif %}">
+          <span class="cb-icon">ℹ️</span>
+          <div>
+            <p>
+              ניתן להמשיך ולקבל הערכת מס גם ללא תיק פתוח.
+              אם תחליטו להגיש דו״ח דרכנו — <strong>חובה</strong> לחזור ולעדכן את
+              פרטי התיק לפני הגשה סופית.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── שאלה 3: מספר תיק ─────────────────────────────────────────── -->
+    <div class="qna-card">
+      <div class="qna-card-header">
+        <div class="qna-bullet">3</div>
+        <div class="qna-question-text">מה מספר התיק הצפוי במס הכנסה?</div>
+      </div>
+      <div class="qna-card-body">
+        <input type="text" name="file_number"
+               value="{{ data.file_number or personal.id_number or '' }}"
+               placeholder="{{ personal.id_number or '000000000' }}"
+               class="form-input" style="max-width:280px"
+               id="file-number-input" />
+        <div class="qna-hint">
+          בדרך כלל מספר תיק זהה לתעודת הזהות שלכם. ניתן לבדוק בפנייה ישירה
+          לרשות המסים או דרך <a href="https://www.misim.gov.il/" target="_blank" class="link-blue">האזור האישי ↗</a>.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── שאלה 4: סוג תיק ──────────────────────────────────────────── -->
+    <div class="qna-card">
+      <div class="qna-card-header">
+        <div class="qna-bullet">4</div>
+        <div>
+          <div class="qna-question-text">מה סוג התיק המשוער בהתאם לאופי ההכנסות?</div>
+          <span class="qna-question-sub">
+            רוב השכירים ישתמשו בתיק 91 (החזר מס). בעלי מספר מקורות הכנסה — תיק 93.
+          </span>
+        </div>
+      </div>
+      <div class="qna-card-body">
+        <div class="select-wrap" style="max-width:480px">
+          <select name="file_type" class="form-select">
+            {% for code, label in taxfile_types %}
+            <option value="{{ code }}" {% if data.file_type == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function onHasFileChange(val) {
+  document.getElementById('has-file-yes-hint').style.display = val === 'yes' ? 'flex' : 'none';
+  document.getElementById('has-file-no-hint').style.display  = val !== 'yes' ? 'flex' : 'none';
+}
+function onOpenNowChange(val) {
+  document.getElementById('open-now-yes').style.display = val === 'yes' ? 'flex' : 'none';
+  document.getElementById('open-now-no').style.display  = val !== 'yes' ? 'flex' : 'none';
+}
+
+// Init radio pill highlights
+document.querySelectorAll('.radio-group').forEach(group => {
+  group.querySelectorAll('.radio-pill input[type="radio"]').forEach(input => {
+    if (input.checked) input.closest('.radio-pill').classList.add('radio-pill--active');
+    input.addEventListener('change', () => {
+      group.querySelectorAll('.radio-pill').forEach(p => p.classList.remove('radio-pill--active'));
+      input.closest('.radio-pill').classList.add('radio-pill--active');
+    });
+  });
+});
+</script>
+{% endblock %}

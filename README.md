@@ -6,12 +6,13 @@ RoboMas is a Hebrew-language Flask web application that walks Israeli taxpayers 
 
 ## Features
 
-- **Guided multi-step flow**: goal → year → personal info → family → tax file → income (4 categories) → deductions → documents → download.
-- **Smart conditional logic**: yes/no answers trigger contextual explanations and automatically select relevant deductions.
-- **Document upload UX**: drag & drop or file picker per document type, with real-time upload progress.
-- **Automatic ZIP generation**: produces a ready-to-upload `צרופות לטעינה מס הכנסה.zip` with IRS-standard filenames (`CODE_PART_SEQ_IDYEAR.pdf`) plus a Hebrew cover-page PDF (`קובץ_סיכום`).
-- **RTL Hebrew UI**: Israeli-flag-inspired color palette and fully right-to-left layout.
-- **No login**: no user accounts or authentication required.
+- **Simple step-by-step wizard**: answer a short series of clear questions (יעד, שנה, פרטים אישיים, משפחה, קובץ ניכויים, הכנסות, זכאויות, מסמכים) instead of filling long forms by yourself.
+- **Helps you find refunds**: based on your answers, RoboMas highlights relevant credits, deductions, and situations where you might be entitled to a tax refund.
+- **Explains what and why in Hebrew**: each step includes short explanations in Hebrew so you understand what information is needed and how it affects your refund.
+- **Easy document upload**: upload all required documents with drag & drop, organized by type, with a clear list of what you already added and what is missing.
+- **Ready-for-upload ZIP file**: at the end you get a single ZIP file that is already named and formatted the way the Israel Tax Authority expects, including a summary file (קובץ סיכום).
+- **Designed for Israelis**: right-to-left interface, Hebrew labels, and a visual style that feels familiar.
+- **No registration**: use RoboMas immediately without creating an account or remembering a password.
 
 ## Requirements
 

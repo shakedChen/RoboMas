@@ -630,12 +630,16 @@ def _is_valid_israeli_id(id_number: str) -> bool:
 def inject_step_info():
     step, label = _STEP_MAP.get(request.endpoint, (0, ""))
     year = session.get("year", "")
+    user = getattr(g, 'current_user', None)
     return {
         "current_step":  step,
         "total_steps":   _TOTAL_STEPS,
         "step_label":    label,
         "session_year":  year,
         "personal_name": (session.get("personal") or {}).get("first_name", ""),
+        "current_user":  user,
+        "is_logged_in":  user is not None,
+        "is_admin":      user.get("is_admin", False) if user else False,
     }
 
 
@@ -1094,8 +1098,183 @@ def reset():
         d = UPLOAD_FOLDER / sid
         if d.exists():
             shutil.rmtree(d, ignore_errors=True)
+    # Keep user session, only clear form data
+    user_id = session.get("user_id")
+    visitor_id = session.get("visitor_id")
     session.clear()
+    if user_id:
+        session["user_id"] = user_id
+    if visitor_id:
+        session["visitor_id"] = visitor_id
     return redirect(url_for("step_goal"))
+
+
+# ── Authentication Routes ────────────────────────────────────────────────────
+@flask_app.route("/login", methods=["GET", "POST"])
+def auth_login():
+    errors = []
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        
+        if not username or not password:
+            errors.append("נא למלא שם משתמש וסיסמה.")
+        else:
+            # Check if admin
+            if username == ADMIN_USERNAME:
+                if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
+                    session["user_id"] = "admin"
+                    session["is_admin"] = True
+                    next_url = request.args.get("next", url_for("admin_dashboard"))
+                    return redirect(next_url)
+                else:
+                    errors.append("שם משתמש או סיסמה שגויים.")
+            elif supabase:
+                # Check regular user in database
+                try:
+                    result = supabase.table("profiles").select("*").eq("username", username).execute()
+                    if result.data:
+                        user = result.data[0]
+                        if verify_password(password, user.get("password_hash", "")):
+                            session["user_id"] = user["id"]
+                            session["is_admin"] = False
+                            next_url = request.args.get("next", url_for("step_goal"))
+                            return redirect(next_url)
+                        else:
+                            errors.append("שם משתמש או סיסמה שגויים.")
+                    else:
+                        errors.append("שם משתמש או סיסמה שגויים.")
+                except Exception as e:
+                    errors.append("שגיאה בהתחברות. נסו שוב.")
+            else:
+                errors.append("שם משתמש או סיסמה שגויים.")
+    
+    return render_template("auth_login.html", errors=errors)
+
+
+@flask_app.route("/signup", methods=["GET", "POST"])
+def auth_signup():
+    errors = []
+    form_data = {}
+    
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
+        first_name = request.form.get("first_name", "").strip()
+        last_name = request.form.get("last_name", "").strip()
+        
+        form_data = {
+            "username": username,
+            "email": email,
+            "first_name": first_name,
+            "last_name": last_name,
+        }
+        
+        # Validation
+        if not username or len(username) < 3:
+            errors.append("שם משתמש חייב להכיל לפחות 3 תווים.")
+        if not email or "@" not in email:
+            errors.append("נא להזין כתובת אימייל תקינה.")
+        if not password or len(password) < 8:
+            errors.append("הסיסמה חייבת להכיל לפחות 8 תווים.")
+        if password != confirm_password:
+            errors.append("הסיסמאות אינן תואמות.")
+        
+        # Check reserved username
+        if username.lower() == ADMIN_USERNAME.lower():
+            errors.append("שם משתמש זה אינו זמין.")
+        
+        if not errors and supabase:
+            try:
+                # Check if username exists
+                existing = supabase.table("profiles").select("id").eq("username", username).execute()
+                if existing.data:
+                    errors.append("שם המשתמש כבר קיים במערכת.")
+                else:
+                    # Check if email exists
+                    existing_email = supabase.table("profiles").select("id").eq("email", email).execute()
+                    if existing_email.data:
+                        errors.append("כתובת האימייל כבר רשומה במערכת.")
+                    else:
+                        # Create user
+                        user_id = str(uuid.uuid4())
+                        password_hash = hash_password(password)
+                        
+                        supabase.table("profiles").insert({
+                            "id": user_id,
+                            "username": username,
+                            "email": email,
+                            "password_hash": password_hash,
+                            "first_name": first_name,
+                            "last_name": last_name,
+                        }).execute()
+                        
+                        # Log them in
+                        session["user_id"] = user_id
+                        session["is_admin"] = False
+                        return redirect(url_for("step_goal"))
+            except Exception as e:
+                errors.append(f"שגיאה בהרשמה. נסו שוב.")
+        elif not supabase:
+            errors.append("מערכת ההרשמה אינה זמינה כרגע.")
+    
+    return render_template("auth_signup.html", errors=errors, data=form_data)
+
+
+@flask_app.route("/logout")
+def auth_logout():
+    session.pop("user_id", None)
+    session.pop("is_admin", None)
+    return redirect(url_for("step_goal"))
+
+
+# ── Admin Dashboard ──────────────────────────────────────────────────────────
+@flask_app.route("/admin")
+@admin_required
+def admin_dashboard():
+    stats = {"total_visitors": 0, "total_page_views": 0, "today_visitors": 0, "today_page_views": 0}
+    daily_stats = []
+    users = []
+    
+    if supabase:
+        try:
+            # Get aggregate stats
+            all_stats = supabase.table("visitor_stats").select("*").order("date", desc=True).limit(30).execute()
+            if all_stats.data:
+                daily_stats = all_stats.data
+                stats["total_visitors"] = sum(s["unique_visitors"] for s in all_stats.data)
+                stats["total_page_views"] = sum(s["page_views"] for s in all_stats.data)
+                
+                today = datetime.now().strftime("%Y-%m-%d")
+                today_stat = next((s for s in all_stats.data if s["date"] == today), None)
+                if today_stat:
+                    stats["today_visitors"] = today_stat["unique_visitors"]
+                    stats["today_page_views"] = today_stat["page_views"]
+            
+            # Get users
+            users_result = supabase.table("profiles").select("id, username, email, first_name, last_name, created_at").order("created_at", desc=True).execute()
+            users = users_result.data or []
+        except Exception as e:
+            print(f"Admin dashboard error: {e}")
+    
+    return render_template("admin_dashboard.html", stats=stats, daily_stats=daily_stats, users=users)
+
+
+@flask_app.route("/api/admin/stats")
+@admin_required
+def api_admin_stats():
+    """API endpoint for admin statistics."""
+    if not supabase:
+        return jsonify({"error": "Database not connected"}), 500
+    
+    try:
+        # Get last 30 days stats
+        stats = supabase.table("visitor_stats").select("*").order("date", desc=True).limit(30).execute()
+        return jsonify({"stats": stats.data or []})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

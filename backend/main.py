@@ -4,6 +4,7 @@ from flask import (
     Flask, render_template, request, session,
     redirect, url_for, send_file
 )
+from asgiref.wsgi import WsgiToAsgi
 import io
 import os
 import zipfile
@@ -13,12 +14,19 @@ from pathlib import Path
 from werkzeug.utils import secure_filename
 from fpdf import FPDF
 
-app = Flask(__name__)
-app.secret_key = "robomas-express-il-tax-2024-xk9z"
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
+# Create Flask app
+flask_app = Flask(__name__)
+
+# Configure Flask app
+flask_app.secret_key = os.environ.get("SECRET_KEY", "robomas-express-il-tax-2024-xk9z")
+flask_app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
+
+# Wrap with ASGI adapter for uvicorn compatibility
+app = WsgiToAsgi(flask_app)
 
 BASE_DIR = Path(__file__).parent
-UPLOAD_FOLDER = BASE_DIR / "uploads"
+# Use /tmp for uploads in serverless environment
+UPLOAD_FOLDER = Path("/tmp") / "robomas_uploads" if os.environ.get("VERCEL") else BASE_DIR / "uploads"
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 
 # ── Document type registry ────────────────────────────────────────────────────
@@ -261,7 +269,7 @@ def _build_report_context() -> dict:
         else:
             insights.append("סימנתם שיש ילדים — ייתכנו נקודות זיכוי בגין ילדים.")
     if "capital_foreign" in session.get("income_capital", []):
-        insights.append("דיווחתם על השקעות דרך ברוקר זר — לרוב נדרש לצרף טופסי 1042-S ו-867.")
+        insights.append("דיווחת�� על השקעות דרך ברוקר זר — לרוב נדרש לצרף טופסי 1042-S ו-867.")
     if "rent" in session.get("income_capital", []):
         insights.append("סימנתם הכנסות משכירות — כדאי לבדוק מסלולי מיסוי אפשריים (פטור, 10%, רגיל).")
     if "donations" in deductions_keys:
@@ -292,7 +300,17 @@ _MIME_TO_EXT = {
 }
 
 # ── Hebrew font path ───────────────────────────────────────────────────────────
-_HEBREW_FONT = "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
+# Try multiple potential font paths for Hebrew support
+_HEBREW_FONT_PATHS = [
+    "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",  # macOS
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",       # Linux (Vercel)
+    "/usr/share/fonts/truetype/freefont/FreeSans.ttf",       # Linux alternative
+]
+_HEBREW_FONT = None
+for font_path in _HEBREW_FONT_PATHS:
+    if Path(font_path).exists():
+        _HEBREW_FONT = font_path
+        break
 
 # ── Summary cover-page PDF ────────────────────────────────────────────────────
 def _build_summary_pdf(
@@ -303,10 +321,16 @@ def _build_summary_pdf(
     """Return bytes of a Hebrew cover-page PDF listing all uploaded documents."""
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=20)
-    pdf.add_font("HEB", "", _HEBREW_FONT)
-    pdf.add_font("HEB", "B", _HEBREW_FONT)
+    
+    # Use Hebrew font if available, otherwise fall back to built-in helvetica
+    if _HEBREW_FONT:
+        pdf.add_font("HEB", "", _HEBREW_FONT)
+        pdf.add_font("HEB", "B", _HEBREW_FONT)
+        font_name = "HEB"
+    else:
+        font_name = "helvetica"
 
-    # ── Cover page ────────────────────────────────────────────────────────────
+    # ── Cover page ───────────���────────────────────────────────────────────────
     pdf.add_page()
 
     # Deep blue header bar
@@ -314,14 +338,14 @@ def _build_summary_pdf(
     pdf.rect(0, 0, 210, 42, "F")
 
     # Logo text
-    pdf.set_font("HEB", "B", 24)
+    pdf.set_font(font_name, "B", 24)
     pdf.set_text_color(255, 255, 255)
     pdf.set_xy(0, 10)
-    pdf.cell(210, 10, "רובומס", align="C")
+    pdf.cell(210, 10, "RoboMas" if font_name == "helvetica" else "רובומס", align="C")
 
-    pdf.set_font("HEB", "", 12)
+    pdf.set_font(font_name, "", 12)
     pdf.set_xy(0, 24)
-    pdf.cell(210, 8, "צרופות לטעינה — מס הכנסה", align="C")
+    pdf.cell(210, 8, "Tax Documents Summary" if font_name == "helvetica" else "צרופות לטעינה — מס הכנסה", align="C")
 
     pdf.set_text_color(30, 30, 30)
 
@@ -330,10 +354,10 @@ def _build_summary_pdf(
     pdf.set_draw_color(100, 140, 210)
     pdf.set_line_width(0.5)
     pdf.rect(75, 50, 60, 12, "FD")
-    pdf.set_font("HEB", "B", 14)
+    pdf.set_font(font_name, "B", 14)
     pdf.set_text_color(10, 36, 99)
     pdf.set_xy(75, 52)
-    pdf.cell(60, 8, f"שנת מס {year}", align="C")
+    pdf.cell(60, 8, f"Tax Year {year}" if font_name == "helvetica" else f"שנת מס {year}", align="C")
 
     pdf.set_text_color(30, 30, 30)
     pdf.set_y(72)
@@ -341,14 +365,15 @@ def _build_summary_pdf(
     # Personal info block
     name   = personal.get("name", "").strip()
     id_num = personal.get("id_number", "").strip()
-    pdf.set_font("HEB", "B", 11)
+    pdf.set_font(font_name, "B", 11)
     if name:
         pdf.set_x(0)
         pdf.cell(190, 8, name, align="R")
         pdf.ln(7)
     if id_num:
         pdf.set_x(0)
-        pdf.cell(190, 7, f"ת.ז.: {id_num}", align="R")
+        id_label = "ID:" if font_name == "helvetica" else "ת.ז.:"
+        pdf.cell(190, 7, f"{id_label} {id_num}", align="R")
         pdf.ln(7)
 
     pdf.ln(6)
@@ -357,8 +382,9 @@ def _build_summary_pdf(
     pdf.set_fill_color(10, 36, 99)
     pdf.set_text_color(255, 255, 255)
     pdf.set_x(15)
-    pdf.set_font("HEB", "B", 11)
-    pdf.cell(180, 9, "רשימת המסמכים שצורפו", fill=True, align="R")
+    pdf.set_font(font_name, "B", 11)
+    section_title = "Attached Documents" if font_name == "helvetica" else "רשימת המסמכים שצורפו"
+    pdf.cell(180, 9, section_title, fill=True, align="R")
     pdf.ln(12)
 
     pdf.set_text_color(30, 30, 30)
@@ -366,14 +392,16 @@ def _build_summary_pdf(
     if entries:
         # Table header
         pdf.set_fill_color(240, 245, 255)
-        pdf.set_font("HEB", "B", 9)
+        pdf.set_font(font_name, "B", 9)
         pdf.set_x(15)
-        pdf.cell(90, 8, "שם קובץ ב-ZIP", border=1, fill=True, align="C")
-        pdf.cell(90, 8, "סוג מסמך", border=1, fill=True, align="C")
+        col1 = "File Name in ZIP" if font_name == "helvetica" else "שם קובץ ב-ZIP"
+        col2 = "Document Type" if font_name == "helvetica" else "סוג מסמך"
+        pdf.cell(90, 8, col1, border=1, fill=True, align="C")
+        pdf.cell(90, 8, col2, border=1, fill=True, align="C")
         pdf.ln()
 
         # Table rows
-        pdf.set_font("HEB", "", 9)
+        pdf.set_font(font_name, "", 9)
         for i, (zip_name, label, _orig) in enumerate(entries):
             fill = i % 2 == 0
             pdf.set_fill_color(250, 252, 255) if fill else pdf.set_fill_color(255, 255, 255)
@@ -382,9 +410,10 @@ def _build_summary_pdf(
             pdf.cell(90, 7, label,    border=1, fill=fill, align="R")
             pdf.ln()
     else:
-        pdf.set_font("HEB", "", 11)
+        pdf.set_font(font_name, "", 11)
         pdf.set_x(0)
-        pdf.cell(190, 10, "לא הועלו מסמכים.", align="C")
+        no_docs = "No documents uploaded." if font_name == "helvetica" else "לא הועלו מסמכים."
+        pdf.cell(190, 10, no_docs, align="C")
         pdf.ln()
 
     # Footer
@@ -393,10 +422,11 @@ def _build_summary_pdf(
     pdf.set_line_width(0.3)
     pdf.line(15, pdf.get_y(), 195, pdf.get_y())
     pdf.ln(3)
-    pdf.set_font("HEB", "", 8)
+    pdf.set_font(font_name, "", 8)
     pdf.set_text_color(120, 120, 120)
     pdf.set_x(0)
-    pdf.cell(190, 5, "www.robomas.co.il  |  מסמך זה הופק אוטומטית על ידי מערכת רובומס", align="C")
+    footer_text = "www.robomas.co.il  |  Auto-generated by RoboMas" if font_name == "helvetica" else "www.robomas.co.il  |  מסמך זה הופק אוטומטית על ידי מערכת רובומס"
+    pdf.cell(190, 5, footer_text, align="C")
 
     return bytes(pdf.output())
 
@@ -469,7 +499,7 @@ def _is_valid_israeli_id(id_number: str) -> bool:
     return total % 10 == 0
 
 
-@app.context_processor
+@flask_app.context_processor
 def inject_step_info():
     step, label = _STEP_MAP.get(request.endpoint, (0, ""))
     year = session.get("year", "")
@@ -483,7 +513,7 @@ def inject_step_info():
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
-@app.route("/", methods=["GET", "POST"])
+@flask_app.route("/", methods=["GET", "POST"])
 def step_goal():
     if request.method == "POST":
         goal = request.form.get("goal", "").strip()
@@ -497,7 +527,7 @@ def step_goal():
     return render_template("step_goal.html", errors=[])
 
 
-@app.route("/year", methods=["GET", "POST"])
+@flask_app.route("/year", methods=["GET", "POST"])
 def step_year():
     valid_years = list(range(2016, 2026))
     if request.method == "POST":
@@ -530,7 +560,7 @@ def step_year():
     )
 
 
-@app.route("/personal", methods=["GET", "POST"])
+@flask_app.route("/personal", methods=["GET", "POST"])
 def step_personal():
     if request.method == "POST":
         errors: list[str] = []
@@ -588,7 +618,7 @@ def step_personal():
     )
 
 
-@app.route("/family", methods=["GET", "POST"])
+@flask_app.route("/family", methods=["GET", "POST"])
 def step_family():
     if request.method == "POST":
         errors: list[str] = []
@@ -641,7 +671,7 @@ def step_family():
     )
 
 
-@app.route("/taxfile", methods=["GET", "POST"])
+@flask_app.route("/taxfile", methods=["GET", "POST"])
 def step_taxfile():
     if request.method == "POST":
         errors: list[str] = []
@@ -694,7 +724,7 @@ def step_taxfile():
         )
 
 
-@app.route("/income/general", methods=["GET", "POST"])
+@flask_app.route("/income/general", methods=["GET", "POST"])
 def step_income_general():
     if request.method == "POST":
         session["income_general"] = request.form.getlist("items")
@@ -707,7 +737,7 @@ def step_income_general():
     )
 
 
-@app.route("/income/capital", methods=["GET", "POST"])
+@flask_app.route("/income/capital", methods=["GET", "POST"])
 def step_income_capital():
     if request.method == "POST":
         session["income_capital"] = request.form.getlist("items")
@@ -720,7 +750,7 @@ def step_income_capital():
     )
 
 
-@app.route("/income/pension", methods=["GET", "POST"])
+@flask_app.route("/income/pension", methods=["GET", "POST"])
 def step_income_pension():
     if request.method == "POST":
         session["income_pension"] = request.form.getlist("items")
@@ -733,7 +763,7 @@ def step_income_pension():
     )
 
 
-@app.route("/income/other", methods=["GET", "POST"])
+@flask_app.route("/income/other", methods=["GET", "POST"])
 def step_income_other():
     if request.method == "POST":
         session["income_other"] = request.form.getlist("items")
@@ -746,7 +776,7 @@ def step_income_other():
     )
 
 
-@app.route("/deductions", methods=["GET", "POST"])
+@flask_app.route("/deductions", methods=["GET", "POST"])
 def step_deductions():
     if request.method == "POST":
         session["deductions"] = request.form.getlist("items")
@@ -768,7 +798,7 @@ def step_deductions():
     )
 
 
-@app.route("/documents", methods=["GET", "POST"])
+@flask_app.route("/documents", methods=["GET", "POST"])
 def step_documents():
     required_docs = determine_required_docs()
     upload_dir = get_session_upload_dir()
@@ -799,7 +829,7 @@ def step_documents():
     )
 
 
-@app.route("/complete")
+@flask_app.route("/complete")
 def step_complete():
     ctx = _build_report_context()
     return render_template(
@@ -814,7 +844,7 @@ def step_complete():
     )
 
 
-@app.route("/download")
+@flask_app.route("/download")
 def download_zip():
     upload_dir = get_session_upload_dir()
     personal = session.get("personal", {})
@@ -854,7 +884,7 @@ def download_zip():
     )
 
 
-@app.route("/download-txt")
+@flask_app.route("/download-txt")
 def download_txt():
     """Download a human-readable TXT summary of the answers (for review / advisor)."""
     ctx = _build_report_context()
@@ -930,7 +960,7 @@ def download_txt():
     )
 
 
-@app.route("/reset")
+@flask_app.route("/reset")
 def reset():
     sid = session.get("sid", "")
     if sid:
@@ -942,4 +972,5 @@ def reset():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5431)
+    port = int(os.environ.get("PORT", 5431))
+    flask_app.run(debug=True, host="0.0.0.0", port=port)

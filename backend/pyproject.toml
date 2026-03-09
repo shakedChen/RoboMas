@@ -1,0 +1,13 @@
+[project]
+name = "robomas-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0.0",
+    "werkzeug>=3.0.0",
+    "fpdf2>=2.7.0",
+    "asgiref>=3.7.0",
+]
+
+[tool.uv]
+dev-dependencies = []

@@ -111,7 +111,7 @@
         <div class="summary-pill-group">
           <div class="summary-pill-group-title">{{ group.group_title }}</div>
           <div class="summary-pill-row">
-            {% for label in group.items %}
+            {% for label in group['items'] %}
             <span class="summary-pill">{{ label }}</span>
             {% endfor %}
           </div>
